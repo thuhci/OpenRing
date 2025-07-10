@@ -101,6 +101,8 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private TextView measurementStatusText;
     private PlotView plotViewG, plotViewI, plotViewR;
     private PlotView plotViewX, plotViewY, plotViewZ;
+    private PlotView plotViewGyroX, plotViewGyroY, plotViewGyroZ;
+    private PlotView plotViewTemp0, plotViewTemp1, plotViewTemp2;
     private boolean isMeasuring = false;
 
     // 自定义指令监听器
@@ -133,8 +135,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         // 显示Dashboard页面
         showDashboard();
 
-        // 启动数据模拟
-        startDataSimulation();
+
     }
 
     private void initializeViews() {
@@ -151,8 +152,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         connectButton = findViewById(R.id.connectButton);
         updateTimeButton = findViewById(R.id.updateTimeButton);
         calibrateButton = findViewById(R.id.calibrateButton);
-        startRecordingButton = findViewById(R.id.startRecordingButton);
-        resetButton = findViewById(R.id.resetButton);
+
         startOfflineButton = findViewById(R.id.startOfflineButton);
         getFileListButton = findViewById(R.id.getFileListButton);
         downloadSelectedButton = findViewById(R.id.downloadSelectedButton);
@@ -164,14 +164,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         // 文件列表
         fileListStatus = findViewById(R.id.fileListStatus);
         fileListContainer = findViewById(R.id.fileListContainer);
-
-        // PPG数据
-        ppgGreenText = findViewById(R.id.ppgGreenText);
-        ppgIrText = findViewById(R.id.ppgIrText);
-        ppgRedText = findViewById(R.id.ppgRedText);
-        xAxisText = findViewById(R.id.xAxisText);
-        yAxisText = findViewById(R.id.yAxisText);
-        zAxisText = findViewById(R.id.zAxisText);
 
         // 在线测量相关
         measurementTimeInput = findViewById(R.id.measurementTimeInput);
@@ -187,6 +179,16 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         plotViewY = findViewById(R.id.plotViewY);
         plotViewZ = findViewById(R.id.plotViewZ);
 
+        // 初始化陀螺仪PlotView
+        plotViewGyroX = findViewById(R.id.plotViewGyroX);
+        plotViewGyroY = findViewById(R.id.plotViewGyroY);
+        plotViewGyroZ = findViewById(R.id.plotViewGyroZ);
+
+        // 初始化温度PlotView
+        plotViewTemp0 = findViewById(R.id.plotViewTemp0);
+        plotViewTemp1 = findViewById(R.id.plotViewTemp1);
+        plotViewTemp2 = findViewById(R.id.plotViewTemp2);
+
         // 设置PlotView颜色
         if (plotViewG != null) plotViewG.setPlotColor(Color.parseColor("#4CAF50"));
         if (plotViewI != null) plotViewI.setPlotColor(Color.parseColor("#FF9800"));
@@ -195,6 +197,16 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         if (plotViewY != null) plotViewY.setPlotColor(Color.parseColor("#9C27B0"));
         if (plotViewZ != null) plotViewZ.setPlotColor(Color.parseColor("#00BCD4"));
 
+        // 设置陀螺仪PlotView颜色
+        if (plotViewGyroX != null) plotViewGyroX.setPlotColor(Color.parseColor("#FF6B6B"));
+        if (plotViewGyroY != null) plotViewGyroY.setPlotColor(Color.parseColor("#4ECDC4"));
+        if (plotViewGyroZ != null) plotViewGyroZ.setPlotColor(Color.parseColor("#45B7D1"));
+
+        // 设置温度PlotView颜色
+        if (plotViewTemp0 != null) plotViewTemp0.setPlotColor(Color.parseColor("#FFA726"));
+        if (plotViewTemp1 != null) plotViewTemp1.setPlotColor(Color.parseColor("#FF7043"));
+        if (plotViewTemp2 != null) plotViewTemp2.setPlotColor(Color.parseColor("#FF5722"));
+
         // 连接NotificationHandler的PlotView
         NotificationHandler.setPlotViewG(plotViewG);
         NotificationHandler.setPlotViewI(plotViewI);
@@ -202,6 +214,16 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         NotificationHandler.setPlotViewX(plotViewX);
         NotificationHandler.setPlotViewY(plotViewY);
         NotificationHandler.setPlotViewZ(plotViewZ);
+
+        // 连接NotificationHandler的陀螺仪PlotView
+        NotificationHandler.setPlotViewGyroX(plotViewGyroX);
+        NotificationHandler.setPlotViewGyroY(plotViewGyroY);
+        NotificationHandler.setPlotViewGyroZ(plotViewGyroZ);
+
+        // 连接NotificationHandler的温度PlotView
+        NotificationHandler.setPlotViewTemp0(plotViewTemp0);
+        NotificationHandler.setPlotViewTemp1(plotViewTemp1);
+        NotificationHandler.setPlotViewTemp2(plotViewTemp2);
 
         // 设置设备指令回调
         NotificationHandler.setDeviceCommandCallback(new NotificationHandler.DeviceCommandCallback() {
@@ -279,8 +301,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         connectButton.setOnClickListener(v -> connectToDevice());
         updateTimeButton.setOnClickListener(v -> updateDeviceTime());
         calibrateButton.setOnClickListener(v -> calibrateTime());
-        startRecordingButton.setOnClickListener(v -> toggleRecording());
-        resetButton.setOnClickListener(v -> resetData());
         startOfflineButton.setOnClickListener(v -> startOfflineRecording());
         getFileListButton.setOnClickListener(v -> getFileList());
         downloadSelectedButton.setOnClickListener(v -> downloadSelectedFiles());
@@ -332,13 +352,11 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private void showDashboard() {
         hideAllViews();
         findViewById(R.id.dashboardLayout).setVisibility(View.VISIBLE);
-        updatePPGData();
     }
 
     private void showOnlineVisualize() {
         hideAllViews();
         findViewById(R.id.onlineLayout).setVisibility(View.VISIBLE);
-        updatePPGData();
     }
 
     private void showOfflineDownload() {
@@ -360,16 +378,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         findViewById(R.id.logsLayout).setVisibility(View.GONE);
     }
 
-    private void updatePPGData() {
-        if (ppgGreenText != null) {
-            ppgGreenText.setText(String.valueOf(ppgGreen));
-            ppgIrText.setText(String.valueOf(ppgIr));
-            ppgRedText.setText(String.valueOf(ppgRed));
-            xAxisText.setText(String.format("%.2f", xAxis));
-            yAxisText.setText(String.format("%.2f", yAxis));
-            zAxisText.setText(String.format("%.2f", zAxis));
-        }
-    }
 
     private void setupFileList() {
         fileListContainer.removeAllViews();
@@ -438,51 +446,26 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         downloadSelectedButton.setText("Download Selected (1)");
     }
 
-    private void startDataSimulation() {
-        mainHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (isConnected) {
-                    // 模拟PPG数据变化
-                    ppgGreen = 1024 + random.nextInt(200) - 100;
-                    ppgIr = 856 + random.nextInt(200) - 100;
-                    ppgRed = 732 + random.nextInt(200) - 100;
-
-                    // 模拟加速度计数据
-                    xAxis = 0.12f + (random.nextFloat() - 0.5f) * 0.2f;
-                    yAxis = -0.05f + (random.nextFloat() - 0.5f) * 0.2f;
-                    zAxis = 9.81f + (random.nextFloat() - 0.5f) * 0.5f;
-
-                    updatePPGData();
-
-                    // 如果正在测量，更新PlotView
-                    if (isMeasuring) {
-                        updatePlotViews();
-                    }
-                }
-
-                // 继续模拟
-                mainHandler.postDelayed(this, 100);
-            }
-        }, 100);
-    }
-
-    private void updatePlotViews() {
-        if (plotViewG != null) plotViewG.addValue(ppgGreen);
-        if (plotViewI != null) plotViewI.addValue(ppgIr);
-        if (plotViewR != null) plotViewR.addValue(ppgRed);
-        if (plotViewX != null) plotViewX.addValue((int)(xAxis * 1000));
-        if (plotViewY != null) plotViewY.addValue((int)(yAxis * 1000));
-        if (plotViewZ != null) plotViewZ.addValue((int)(zAxis * 1000));
-    }
-
     private void clearAllPlots() {
+        // PPG图表
         if (plotViewG != null) plotViewG.clearPlot();
         if (plotViewI != null) plotViewI.clearPlot();
         if (plotViewR != null) plotViewR.clearPlot();
+
+        // 加速度计图表
         if (plotViewX != null) plotViewX.clearPlot();
         if (plotViewY != null) plotViewY.clearPlot();
         if (plotViewZ != null) plotViewZ.clearPlot();
+
+        // 陀螺仪图表
+        if (plotViewGyroX != null) plotViewGyroX.clearPlot();
+        if (plotViewGyroY != null) plotViewGyroY.clearPlot();
+        if (plotViewGyroZ != null) plotViewGyroZ.clearPlot();
+
+        // 温度图表
+        if (plotViewTemp0 != null) plotViewTemp0.clearPlot();
+        if (plotViewTemp1 != null) plotViewTemp1.clearPlot();
+        if (plotViewTemp2 != null) plotViewTemp2.clearPlot();
     }
 
     // 在线测量功能
@@ -779,15 +762,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     }
 
     private void resetData() {
-        ppgGreen = 1024;
-        ppgIr = 856;
-        ppgRed = 732;
-        xAxis = 0.12f;
-        yAxis = -0.05f;
-        zAxis = 9.81f;
-        updatePPGData();
-
-        // 清空图表
         clearAllPlots();
 
         Toast.makeText(this, "Data reset", Toast.LENGTH_SHORT).show();

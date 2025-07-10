@@ -15,7 +15,8 @@ public class NotificationHandler {
     private static PlotView plotViewG, plotViewI;
     private static PlotView plotViewR, plotViewX;
     private static PlotView plotViewY, plotViewZ;
-
+    private static PlotView plotViewGyroX, plotViewGyroY, plotViewGyroZ;
+    private static PlotView plotViewTemp0, plotViewTemp1, plotViewTemp2;
     // 文件操作回调接口
     public interface FileResponseCallback {
         void onFileListReceived(byte[] data);
@@ -108,7 +109,14 @@ public class NotificationHandler {
     public static void setPlotViewX(PlotView chartView) { plotViewX = chartView; }
     public static void setPlotViewY(PlotView chartView) { plotViewY = chartView; }
     public static void setPlotViewZ(PlotView chartView) { plotViewZ = chartView; }
+    public static void setPlotViewGyroX(PlotView chartView) { plotViewGyroX = chartView; }
+    public static void setPlotViewGyroY(PlotView chartView) { plotViewGyroY = chartView; }
+    public static void setPlotViewGyroZ(PlotView chartView) { plotViewGyroZ = chartView; }
 
+    // 新增：温度PlotView设置方法
+    public static void setPlotViewTemp0(PlotView chartView) { plotViewTemp0 = chartView; }
+    public static void setPlotViewTemp1(PlotView chartView) { plotViewTemp1 = chartView; }
+    public static void setPlotViewTemp2(PlotView chartView) { plotViewTemp2 = chartView; }
     public interface LogRecorder {
         void recordLog(String message);
     }
@@ -1059,7 +1067,7 @@ public class NotificationHandler {
             short temp2 = readInt16LE(data, offset + 28);
 
             // 更新实时图表显示
-            updateRealtimeCharts(green, red, ir, accX, accY, accZ);
+            updateRealtimeCharts(green, red, ir, accX, accY, accZ, gyroX, gyroY, gyroZ, temp0, temp1, temp2);
 
             Log.v(TAG, String.format("Realtime point: G:%d, R:%d, IR:%d, AccX:%d, AccY:%d, AccZ:%d, GyroX:%d, GyroY:%d, GyroZ:%d, T0:%d, T1:%d, T2:%d",
                     green, red, ir, accX, accY, accZ, gyroX, gyroY, gyroZ, temp0, temp1, temp2));
@@ -1076,7 +1084,10 @@ public class NotificationHandler {
     /**
      * 更新实时图表
      */
-    private static void updateRealtimeCharts(long green, long red, long ir, short accX, short accY, short accZ) {
+    private static void updateRealtimeCharts(long green, long red, long ir,
+                                             short accX, short accY, short accZ,
+                                             short gyroX, short gyroY, short gyroZ,
+                                             short temp0, short temp1, short temp2) {
         try {
             // 更新PPG数据图表
             if (plotViewG != null) plotViewG.addValue((int)green);
@@ -1087,6 +1098,16 @@ public class NotificationHandler {
             if (plotViewX != null) plotViewX.addValue(accX);
             if (plotViewY != null) plotViewY.addValue(accY);
             if (plotViewZ != null) plotViewZ.addValue(accZ);
+
+            // 新增：更新陀螺仪图表
+            if (plotViewGyroX != null) plotViewGyroX.addValue(gyroX);
+            if (plotViewGyroY != null) plotViewGyroY.addValue(gyroY);
+            if (plotViewGyroZ != null) plotViewGyroZ.addValue(gyroZ);
+
+            // 新增：更新温度图表
+            if (plotViewTemp0 != null) plotViewTemp0.addValue(temp0);
+            if (plotViewTemp1 != null) plotViewTemp1.addValue(temp1);
+            if (plotViewTemp2 != null) plotViewTemp2.addValue(temp2);
 
         } catch (Exception e) {
             Log.e(TAG, "Error updating realtime charts", e);
