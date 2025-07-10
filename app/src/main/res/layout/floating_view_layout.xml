@@ -1,0 +1,28 @@
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <!-- 包裹 SurfaceView 的 FrameLayout -->
+    <FrameLayout
+        android:id="@+id/recordingBorder"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="3dp"
+        android:background="@android:color/transparent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- SurfaceView -->
+        <SurfaceView
+            android:id="@+id/surfaceViewBack"
+            android:layout_width="90dp"
+            android:layout_height="160dp"
+            app:layout_constraintDimensionRatio="9:16" />
+
+    </FrameLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

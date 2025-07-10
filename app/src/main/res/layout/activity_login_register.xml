@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="#f4f4f4"
+    android:gravity="center">
+
+    <!-- 用户名或手机号输入框 -->
+    <EditText
+        android:id="@+id/usernameEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:hint="用户名或手机号"
+        android:inputType="text"
+        android:textColor="#333"
+        android:background="@drawable/edit_text_background"
+        android:padding="12dp"
+        android:textSize="16sp" />
+
+    <!-- 密码输入框 -->
+    <EditText
+        android:id="@+id/passwordEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        android:hint="密码"
+        android:inputType="textPassword"
+        android:textColor="#333"
+        android:background="@drawable/edit_text_background"
+        android:padding="12dp"
+        android:textSize="16sp" />
+
+    <!-- 登录/注册按钮 -->
+    <Button
+        android:id="@+id/loginRegisterButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/rounded_bg"
+        android:text="登录/注册"
+        android:textColor="#ffffff"
+        android:textSize="16sp"
+        android:layout_marginBottom="16dp"
+        android:padding="14dp"
+        android:layout_gravity="center" />
+
+</LinearLayout>

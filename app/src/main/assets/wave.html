@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Animation</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #fff;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+<canvas id="waveCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById("waveCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let waveOffset = 0;
+    let amplitude = 20; // 初始振幅
+    let width, height;
+
+    function resizeCanvas() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    }
+
+    function drawWave() {
+        ctx.clearRect(0, 0, width, height);
+
+        ctx.beginPath();
+        ctx.moveTo(0, height / 2);
+
+        for (let x = 0; x < width; x++) {
+            let y = height / 2 + Math.sin((x + waveOffset) * 0.02) * amplitude;
+            ctx.lineTo(x, y);
+        }
+
+        ctx.strokeStyle = "#2196F3";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        waveOffset += 2;
+        requestAnimationFrame(drawWave);
+    }
+
+    function setWaveStrength(strength) {
+        let targetAmplitude = strength * 40;
+        let step = (targetAmplitude - amplitude) / 20;
+
+        function animateAmplitude() {
+            amplitude += step;
+            if (Math.abs(targetAmplitude - amplitude) < 0.5) {
+                amplitude = targetAmplitude;
+            } else {
+                requestAnimationFrame(animateAmplitude);
+            }
+        }
+        animateAmplitude();
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    drawWave();
+</script>
+</body>
+</html>

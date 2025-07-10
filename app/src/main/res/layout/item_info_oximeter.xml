@@ -1,0 +1,11 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="#EEEEEE">
+
+    <TextView android:id="@+id/info_ox_hr" android:text="HR: --"/>
+    <TextView android:id="@+id/info_ox_spo2" android:text="SpO₂: --"/>
+    <TextView android:id="@+id/info_ox_bvp" android:text="BVP: --"/>
+</LinearLayout>

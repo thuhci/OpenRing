@@ -1,0 +1,10 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="12dp"
+    android:orientation="vertical"
+    android:background="#EEEEEE">
+
+    <TextView android:id="@+id/info_mic_db" android:text="分贝: -- dB" />
+    <TextView android:id="@+id/info_mic_freq" android:text="主频: -- Hz" />
+</LinearLayout>

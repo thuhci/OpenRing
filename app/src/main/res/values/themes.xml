@@ -1,0 +1,16 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- 自定义基础主题 -->
+    <style name="Base.Theme.Sample" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- 重写主题颜色 -->
+        <item name="colorPrimary">@color/my_primary</item>
+        <item name="colorPrimaryContainer">@color/my_primary_container</item>
+        <item name="colorOnPrimary">@color/my_on_primary</item>
+        <item name="colorSecondary">@color/my_secondary</item>
+        <item name="colorOnSecondary">@color/my_on_secondary</item>
+        <item name="colorSurface">@color/my_surface</item>  <!-- 自定义表面色 -->
+        <item name="colorOnSurface">@color/my_on_surface</item> <!-- 表面文字颜色 -->
+        <item name="colorError">@color/my_error</item> <!-- 错误颜色 -->
+    </style>
+
+    <style name="Theme.Sample" parent="Base.Theme.Sample" />
+</resources>

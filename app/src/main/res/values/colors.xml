@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="teal_700">#018786</color>
+    <color name="default_background">#FFFFFF</color> <!-- 白色，未选中项的背景色 -->
+    <color name="my_primary">#0288D1</color>
+    <color name="my_primary_container">#03A9F4</color> <!-- 主要容器背景色 -->
+    <color name="my_on_primary">#FFFFFF</color> <!-- 主要文字色 -->
+    <color name="my_secondary">#FF4081</color> <!-- 次要颜色 -->
+    <color name="my_on_secondary">#FFFFFF</color> <!-- 次要文字色 -->
+    <color name="my_background">#F5F5F5</color> <!-- 背景颜色 -->
+    <color name="my_surface">#FFFFFF</color> <!-- 表面颜色 -->
+    <color name="my_on_surface">#212121</color> <!-- 表面文字颜色 -->
+    <color name="my_error">#B00020</color> <!-- 错误颜色 -->
+    <color name="selected_background">#E0F7FA</color> <!-- 浅蓝色，选中项的背景色 -->
+    <color name="selectedItemBackground">#E0F7FA</color> <!-- 浅蓝色背景 -->
+    <color name="ecgPrimary">#3F51B5</color>      <!-- 选中背景 -->
+    <color name="ecgOnPrimary">#FFFFFF</color>    <!-- 选中文字 -->
+    <color name="ecgSurface">#FFFFFF</color>      <!-- 未选背景 -->
+    <color name="ecgOnSurface">#212121</color>    <!-- 未选文字 -->
+    <!-- 选中的设备名称的文本颜色 -->
+    <color name="selectedItemTextColor">#00796B</color> <!-- 深绿色文本 -->
+
+    <!-- 默认设备名称文本颜色 -->
+    <color name="defaultItemTextColor">#212121</color> <!-- 黑色文本 -->
+    <color name="blue">#2196F3</color>
+    <color name="green">#4CAF50</color>
+    <color name="red">#FF5722</color>
+    <color name="orange">#FF9800</color>
+    <color name="purple">#9C27B0</color>
+    <color name="cyan">#00BCD4</color>
+
+    <!-- 背景色 -->
+    <color name="light_gray">#F5F5F5</color>
+    <color name="dark_gray">#2C3E50</color>
+
+    <!-- 文本色 -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+
+    <!-- 底部导航色 -->
+    <color name="bottom_nav_selected">#2196F3</color>
+    <color name="bottom_nav_unselected">#757575</color>
+
+    <!-- 状态色 -->
+    <color name="status_connected">#4CAF50</color>
+    <color name="status_disconnected">#FF5722</color>
+    <color name="bootom_nav_color">#FFFFFF</color>
+    <!-- 渐变色 -->
+    <color name="gradient_start">#5C7CFA</color>
+    <color name="gradient_end">#4C6EF5</color>
+
+    <!-- 轴颜色 -->
+    <color name="axis_x">#FF6B6B</color>
+    <color name="axis_y">#4ECDC4</color>
+    <color name="axis_z">#45B7D1</color>
+</resources>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_dashboard"
+        android:icon="@drawable/ic_dashboard"
+        android:title="Dashboard" />
+
+    <item
+        android:id="@+id/nav_online"
+        android:icon="@drawable/ic_online"
+        android:title="Online" />
+
+    <item
+        android:id="@+id/nav_offline"
+        android:icon="@drawable/ic_offline"
+        android:title="Offline" />
+
+    <item
+        android:id="@+id/nav_logs"
+        android:icon="@drawable/ic_log"
+        android:title="Logs" />
+
+</menu>

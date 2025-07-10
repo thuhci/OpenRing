@@ -1,0 +1,49 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:weightSum="1">
+
+    <!-- 标题 -->
+    <TextView
+        android:id="@+id/settingsInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="指环设备设置"
+        android:textSize="18sp"
+        android:textColor="?attr/colorOnPrimary"
+        android:layout_marginBottom="16dp"
+        android:gravity="center"
+        android:layout_gravity="center"/>
+
+    <!-- 开始/停止扫描按钮 -->
+    <Button
+        android:id="@+id/scanButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="开始扫描"
+        android:textSize="16sp"
+        android:textColor="?attr/colorOnPrimary"
+        android:background="?attr/colorPrimary"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- RecyclerView 显示设备列表 -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/deviceListView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- 显示选中的设备信息 -->
+    <TextView
+        android:id="@+id/selectedDeviceInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="选中设备: 无"
+        android:textSize="14sp"
+        android:textColor="?attr/colorOnSurface"
+        android:layout_gravity="center"/>
+
+</LinearLayout>

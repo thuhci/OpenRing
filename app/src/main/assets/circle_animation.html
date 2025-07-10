@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+        .container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+        }
+        .circle {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: #1296db;
+            animation: rotate 5s infinite linear, scale 3s infinite alternate;
+        }
+
+        /* Define the rotation animation */
+        @keyframes rotate {
+            0% { transform: rotate(0deg) translateX(100px) rotate(0deg); }
+            100% { transform: rotate(360deg) translateX(100px) rotate(-360deg); }
+        }
+
+        /* Define the scale animation */
+        @keyframes scale {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.5); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <img class="circle" src="drawable/elipse1.png" alt="Circle 1">
+    <img class="circle" src="drawable/elipse2.png" alt="Circle 2">
+    <img class="circle" src="drawable/elipse3.png" alt="Circle 3">
+</div>
+
+<script>
+    // Change scale duration periodically
+    let scaleDurations = [3, 5, 7, 9]; // Different durations for scaling
+    setInterval(() => {
+        let randomDuration = scaleDurations[Math.floor(Math.random() * scaleDurations.length)];
+        let circles = document.querySelectorAll('.circle');
+        circles.forEach(circle => {
+            circle.style.animationDuration = `${randomDuration}s, 5s`; // Randomize scale duration
+        });
+    }, 5000); // Change the scale duration every 5 seconds
+</script>
+</body>
+</html>
