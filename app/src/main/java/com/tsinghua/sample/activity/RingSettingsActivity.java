@@ -7,9 +7,12 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ImageView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -29,6 +32,8 @@ public class RingSettingsActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private Button scanButton;
     private TextView selectedDeviceInfo;
+    private TextView deviceCountText;
+    private LinearLayout emptyStateLayout;
     private RingAdapter deviceAdapter;
     private ArrayList<String> deviceInfoList;
     private ArrayList<BluetoothDevice> scannedDevices;
@@ -41,7 +46,7 @@ public class RingSettingsActivity extends AppCompatActivity {
             }
 
             // 解析扫描到的设备数据
-            BleDeviceInfo bleDeviceInfo = LogicalApi.getBleDeviceInfoWhenBleScan(device, rssi, bytes,true);
+            BleDeviceInfo bleDeviceInfo = LogicalApi.getBleDeviceInfoWhenBleScan(device, rssi, bytes, true);
             if (bleDeviceInfo != null) {
                 Log.e("RingLog", bleDeviceInfo.getDevice().getName() + " - " + bleDeviceInfo.getDevice().getAddress());
 
@@ -53,7 +58,13 @@ public class RingSettingsActivity extends AppCompatActivity {
                     scannedDevices.add(device);
 
                     // 确保 UI 更新在主线程
-                    runOnUiThread(() -> deviceAdapter.notifyDataSetChanged());
+                    runOnUiThread(() -> {
+                        if (deviceAdapter != null) {
+                            deviceAdapter.notifyDataSetChanged();
+                        }
+                        updateDeviceCount();
+                        updateEmptyState();
+                    });
                 }
             }
         }
@@ -66,36 +77,49 @@ public class RingSettingsActivity extends AppCompatActivity {
 
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
-            Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "设备不支持蓝牙", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
-        // 初始化 UI 元素
+        initializeViews();
+        setupClickListeners();
+        loadSelectedDevice();
+        updateDeviceCount();
+        updateEmptyState();
+
+        String name = getIntent().getStringExtra("deviceName");
+        if (name != null) {
+            setTitle(name + " 设置");
+        }
+    }
+
+    private void initializeViews() {
         recyclerView = findViewById(R.id.deviceListView);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this)); // 添加 LayoutManager
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
         scanButton = findViewById(R.id.scanButton);
         selectedDeviceInfo = findViewById(R.id.selectedDeviceInfo);
+        deviceCountText = findViewById(R.id.deviceCountText);
+        emptyStateLayout = findViewById(R.id.emptyStateLayout);
+
+        // 返回按钮 - 使用Button而不是ImageView
+        Button backBtn = findViewById(R.id.backButton);
+        if (backBtn != null) {
+            backBtn.setOnClickListener(v -> finish());
+        }
+
         TextView info = findViewById(R.id.settingsInfo);
-        info.setText("指环设备设置");
+        if (info != null) {
+            info.setText("指环设备设置");
+        }
 
         deviceInfoList = new ArrayList<>();
         scannedDevices = new ArrayList<>();
         deviceAdapter = new RingAdapter(this, scannedDevices, deviceInfoList);
         recyclerView.setAdapter(deviceAdapter);
+    }
 
-        // 读取 SharedPreferences 中保存的设备 MAC 地址
-        SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
-        String savedMac = prefs.getString("mac_address", "");
-
-        // 如果有已选中的设备 MAC 地址，显示该设备信息
-        if (!TextUtils.isEmpty(savedMac)) {
-            selectedDeviceInfo.setText("选中设备: " + savedMac);
-        } else {
-            selectedDeviceInfo.setText("选中设备: 无");
-        }
-
-        // 启动蓝牙扫描
+    private void setupClickListeners() {
         scanButton.setOnClickListener(v -> {
             if (isScanning) {
                 stopBluetoothScan();
@@ -103,31 +127,77 @@ public class RingSettingsActivity extends AppCompatActivity {
                 startBluetoothScan();
             }
         });
+    }
 
-        String name = getIntent().getStringExtra("deviceName");
-        setTitle(name + " 设置");
+    private void loadSelectedDevice() {
+        SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
+        String savedMac = prefs.getString("mac_address", "");
+        String savedName = prefs.getString("device_name", "");
+
+        if (!TextUtils.isEmpty(savedMac)) {
+            String displayText = !TextUtils.isEmpty(savedName) ?
+                    "选中设备: " + savedName + " (" + savedMac + ")" :
+                    "选中设备: " + savedMac;
+            selectedDeviceInfo.setText(displayText);
+        } else {
+            selectedDeviceInfo.setText("选中设备: 无");
+        }
+    }
+
+    private void updateDeviceCount() {
+        int count = scannedDevices.size();
+        if (deviceCountText != null) {
+            deviceCountText.setText(count + "个设备");
+        }
+    }
+
+    private void updateEmptyState() {
+        if (emptyStateLayout != null) {
+            if (scannedDevices.isEmpty()) {
+                emptyStateLayout.setVisibility(View.VISIBLE);
+                recyclerView.setVisibility(View.GONE);
+            } else {
+                emptyStateLayout.setVisibility(View.GONE);
+                recyclerView.setVisibility(View.VISIBLE);
+            }
+        }
     }
 
     private void startBluetoothScan() {
         if (!bluetoothAdapter.isEnabled()) {
-            bluetoothAdapter.enable();  // 启用蓝牙
+            Toast.makeText(this, "请先启用蓝牙", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        // 执行蓝牙扫描
+        // 清空之前的扫描结果
+        deviceInfoList.clear();
+        scannedDevices.clear();
+        if (deviceAdapter != null) {
+            deviceAdapter.notifyDataSetChanged();
+        }
+        updateDeviceCount();
+        updateEmptyState();
+
+        // 开始扫描
         isScanning = true;
         scanButton.setText("停止扫描");
-        scanButton.setBackgroundResource(R.drawable.button_stop_scan);  // 修改为停止扫描按钮的样式
-        BLEUtils.startLeScan(this, leScanCallback);  // 启动设备扫描
-        Log.d("RingLog", "Bluetooth scanning started...");
+        scanButton.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
+
+        BLEUtils.startLeScan(this, leScanCallback);
+        Log.d("RingLog", "开始蓝牙扫描...");
+
+        Toast.makeText(this, "开始扫描设备...", Toast.LENGTH_SHORT).show();
     }
 
     private void stopBluetoothScan() {
         if (isScanning) {
-            BLEUtils.stopLeScan(this, leScanCallback);  // 停止扫描
+            BLEUtils.stopLeScan(this, leScanCallback);
             isScanning = false;
             scanButton.setText("开始扫描");
-            scanButton.setBackgroundResource(R.drawable.button_start_scan);  // 修改为开始扫描按钮的样式
-            Log.d("RingLog", "Bluetooth scanning stopped.");
+            scanButton.setBackgroundColor(getResources().getColor(android.R.color.holo_blue_light));
+            Log.d("RingLog", "停止蓝牙扫描");
+
+            Toast.makeText(this, "扫描已停止", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -135,12 +205,54 @@ public class RingSettingsActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         if (isScanning) {
-            stopBluetoothScan();  // 停止扫描
+            stopBluetoothScan();
         }
     }
-    public void updateSelectedDeviceInfo(String macAddress) {
-        // 更新显示选中设备的信息
-        selectedDeviceInfo.setText("选中设备: " + macAddress);
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (isScanning) {
+            stopBluetoothScan();
+        }
     }
 
+    public void updateSelectedDeviceInfo(String macAddress) {
+        // 更新显示选中设备的信息
+        String deviceName = "";
+
+        // 从扫描结果中查找设备名称
+        for (int i = 0; i < scannedDevices.size(); i++) {
+            if (scannedDevices.get(i).getAddress().equals(macAddress)) {
+                deviceName = scannedDevices.get(i).getName();
+                break;
+            }
+        }
+
+        // 保存设备名称到SharedPreferences
+        SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString("device_name", deviceName);
+        editor.apply();
+
+        // 更新显示
+        String displayText = !TextUtils.isEmpty(deviceName) ?
+                "选中设备: " + deviceName + " (" + macAddress + ")" :
+                "选中设备: " + macAddress;
+        selectedDeviceInfo.setText(displayText);
+
+        // 设置结果，通知MainActivity
+        setResult(RESULT_OK);
+
+        Toast.makeText(this, "设备选择已保存", Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        // 确保返回时停止扫描
+        if (isScanning) {
+            stopBluetoothScan();
+        }
+    }
 }

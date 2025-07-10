@@ -98,13 +98,6 @@
                 android:gravity="end">
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Status: 7"
-                    android:textColor="@android:color/white"
-                    android:textSize="12sp" />
-
-                <TextView
                     android:id="@+id/batteryText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -549,12 +542,294 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Online Visualize"
+                        android:text="Online Measurement"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:textColor="@android:color/black" />
 
                 </LinearLayout>
+
+                <!-- 测量控制卡片 -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Measurement Settings"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/black"
+                            android:layout_marginBottom="12dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Measurement Duration (seconds)"
+                            android:textSize="14sp"
+                            android:textColor="@android:color/darker_gray"
+                            android:layout_marginBottom="8dp" />
+
+                        <EditText
+                            android:id="@+id/measurementTimeInput"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:text="30"
+                            android:inputType="number"
+                            android:background="@drawable/edittext_background"
+                            android:padding="12dp"
+                            android:textSize="14sp"
+                            android:layout_marginBottom="12dp" />
+
+                        <TextView
+                            android:id="@+id/measurementStatusText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Status: Ready"
+                            android:textSize="14sp"
+                            android:textColor="@android:color/darker_gray"
+                            android:layout_marginBottom="16dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/startMeasurementButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Start Measurement"
+                                android:textSize="14sp"
+                                android:background="@drawable/button_green_bg"
+                                android:textColor="@android:color/white"
+                                android:layout_marginEnd="8dp" />
+
+                            <Button
+                                android:id="@+id/stopMeasurementButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Stop"
+                                android:textSize="14sp"
+                                android:background="@drawable/button_gray_bg"
+                                android:textColor="@android:color/white"
+                                android:layout_marginStart="8dp" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- PPG 数据实时图表 -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="PPG Real-time Charts"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/black"
+                            android:layout_marginBottom="12dp" />
+
+                        <!-- PPG Green -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="80dp"
+                                android:layout_height="wrap_content"
+                                android:text="Green:"
+                                android:textSize="12sp"
+                                android:textColor="@color/green"
+                                android:textStyle="bold" />
+
+                            <com.tsinghua.sample.PlotView
+                                android:id="@+id/plotViewG"
+                                android:layout_width="0dp"
+                                android:layout_height="60dp"
+                                android:layout_weight="1"
+                                android:background="@color/dark_gray" />
+
+                        </LinearLayout>
+
+                        <!-- PPG IR -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="80dp"
+                                android:layout_height="wrap_content"
+                                android:text="IR:"
+                                android:textSize="12sp"
+                                android:textColor="@color/orange"
+                                android:textStyle="bold" />
+
+                            <com.tsinghua.sample.PlotView
+                                android:id="@+id/plotViewI"
+                                android:layout_width="0dp"
+                                android:layout_height="60dp"
+                                android:layout_weight="1"
+                                android:background="@color/dark_gray" />
+
+                        </LinearLayout>
+
+                        <!-- PPG Red -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="80dp"
+                                android:layout_height="wrap_content"
+                                android:text="Red:"
+                                android:textSize="12sp"
+                                android:textColor="@color/red"
+                                android:textStyle="bold" />
+
+                            <com.tsinghua.sample.PlotView
+                                android:id="@+id/plotViewR"
+                                android:layout_width="0dp"
+                                android:layout_height="60dp"
+                                android:layout_weight="1"
+                                android:background="@color/dark_gray" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 加速度计数据实时图表 -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="3-Axis Accelerometer Charts"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/black"
+                            android:layout_marginBottom="12dp" />
+
+                        <!-- X-Axis -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="80dp"
+                                android:layout_height="wrap_content"
+                                android:text="X-Axis:"
+                                android:textSize="12sp"
+                                android:textColor="@color/blue"
+                                android:textStyle="bold" />
+
+                            <com.tsinghua.sample.PlotView
+                                android:id="@+id/plotViewX"
+                                android:layout_width="0dp"
+                                android:layout_height="60dp"
+                                android:layout_weight="1"
+                                android:background="@color/dark_gray" />
+
+                        </LinearLayout>
+
+                        <!-- Y-Axis -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="80dp"
+                                android:layout_height="wrap_content"
+                                android:text="Y-Axis:"
+                                android:textSize="12sp"
+                                android:textColor="@color/purple"
+                                android:textStyle="bold" />
+
+                            <com.tsinghua.sample.PlotView
+                                android:id="@+id/plotViewY"
+                                android:layout_width="0dp"
+                                android:layout_height="60dp"
+                                android:layout_weight="1"
+                                android:background="@color/dark_gray" />
+
+                        </LinearLayout>
+
+                        <!-- Z-Axis -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="80dp"
+                                android:layout_height="wrap_content"
+                                android:text="Z-Axis:"
+                                android:textSize="12sp"
+                                android:textColor="@color/cyan"
+                                android:textStyle="bold" />
+
+                            <com.tsinghua.sample.PlotView
+                                android:id="@+id/plotViewZ"
+                                android:layout_width="0dp"
+                                android:layout_height="60dp"
+                                android:layout_weight="1"
+                                android:background="@color/dark_gray" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
 
                 <!-- 实时录制控制 -->
                 <com.google.android.material.card.MaterialCardView
@@ -581,7 +856,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Real-time Recording"
+                                android:text="Data Recording"
                                 android:textSize="16sp"
                                 android:textStyle="bold"
                                 android:textColor="@android:color/black" />
@@ -605,7 +880,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Start"
+                                android:text="Start Recording"
                                 android:textSize="14sp"
                                 android:background="@drawable/button_green_bg"
                                 android:textColor="@android:color/white"
@@ -616,254 +891,11 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Reset"
+                                android:text="Reset Charts"
                                 android:textSize="14sp"
                                 android:background="@drawable/button_gray_bg"
                                 android:textColor="@android:color/white"
                                 android:layout_marginStart="8dp" />
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- PPG 数据可视化 -->
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:cardCornerRadius="8dp"
-                    app:cardElevation="2dp"
-                    android:layout_marginBottom="16dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="16dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="PPG Data Visualization"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:textColor="@android:color/black"
-                            android:layout_marginBottom="12dp" />
-
-                        <!-- PPG 数值显示 -->
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:layout_marginBottom="16dp">
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="1024"
-                                    android:textSize="20sp"
-                                    android:textStyle="bold"
-                                    android:textColor="@color/green" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Green Light"
-                                    android:textSize="12sp"
-                                    android:textColor="@android:color/darker_gray" />
-
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="856"
-                                    android:textSize="20sp"
-                                    android:textStyle="bold"
-                                    android:textColor="@color/orange" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="IR Light"
-                                    android:textSize="12sp"
-                                    android:textColor="@android:color/darker_gray" />
-
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="732"
-                                    android:textSize="20sp"
-                                    android:textStyle="bold"
-                                    android:textColor="@color/red" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Red Light"
-                                    android:textSize="12sp"
-                                    android:textColor="@android:color/darker_gray" />
-
-                            </LinearLayout>
-
-                        </LinearLayout>
-
-                        <!-- 波形显示区域 -->
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="120dp"
-                            android:orientation="vertical"
-                            android:background="@color/dark_gray"
-                            android:gravity="center"
-                            android:padding="16dp">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="~ PPG Waveform Display ~"
-                                android:textColor="@color/green"
-                                android:textSize="14sp"
-                                android:textStyle="bold" />
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- 3轴加速度计 -->
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:cardCornerRadius="8dp"
-                    app:cardElevation="2dp"
-                    android:layout_marginBottom="16dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="16dp">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="3-Axis Accelerometer"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:textColor="@android:color/black"
-                            android:layout_marginBottom="12dp" />
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal">
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center"
-                                android:background="@drawable/axis_bg_x"
-                                android:padding="12dp"
-                                android:layout_marginEnd="4dp">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="0.12"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold"
-                                    android:textColor="@android:color/white" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="X-Axis (g)"
-                                    android:textSize="10sp"
-                                    android:textColor="@android:color/white" />
-
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center"
-                                android:background="@drawable/axis_bg_y"
-                                android:padding="12dp"
-                                android:layout_marginStart="4dp"
-                                android:layout_marginEnd="4dp">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="-0.05"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold"
-                                    android:textColor="@android:color/white" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Y-Axis (g)"
-                                    android:textSize="10sp"
-                                    android:textColor="@android:color/white" />
-
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical"
-                                android:gravity="center"
-                                android:background="@drawable/axis_bg_z"
-                                android:padding="12dp"
-                                android:layout_marginStart="4dp">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="9.81"
-                                    android:textSize="16sp"
-                                    android:textStyle="bold"
-                                    android:textColor="@android:color/white" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Z-Axis (g)"
-                                    android:textSize="10sp"
-                                    android:textColor="@android:color/white" />
-
-                            </LinearLayout>
 
                         </LinearLayout>
 

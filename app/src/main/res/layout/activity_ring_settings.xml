@@ -1,49 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:weightSum="1">
+    android:background="#F5F5F5">
 
-    <!-- 标题 -->
-    <TextView
-        android:id="@+id/settingsInfo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="指环设备设置"
-        android:textSize="18sp"
-        android:textColor="?attr/colorOnPrimary"
-        android:layout_marginBottom="16dp"
-        android:gravity="center"
-        android:layout_gravity="center"/>
-
-    <!-- 开始/停止扫描按钮 -->
-    <Button
-        android:id="@+id/scanButton"
+    <!-- 标题栏 -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="开始扫描"
-        android:textSize="16sp"
-        android:textColor="?attr/colorOnPrimary"
-        android:background="?attr/colorPrimary"
-        android:layout_marginBottom="16dp"/>
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="16dp"
+        android:background="#2196F3">
 
-    <!-- RecyclerView 显示设备列表 -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/deviceListView"
+        <Button
+            android:id="@+id/backButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="← 返回"
+            android:textColor="@android:color/white"
+            android:background="@android:color/transparent"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/settingsInfo"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="指环设备设置"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+
+
+    </LinearLayout>
+
+    <!-- 当前选中设备信息 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@android:color/white"
+        android:padding="16dp"
+        android:layout_margin="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="当前选中设备"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/selectedDeviceInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="选中设备: 无"
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:padding="8dp"
+            android:background="#E8F5E8" />
+
+    </LinearLayout>
+
+    <!-- 扫描控制 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@android:color/white"
+        android:padding="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="设备扫描"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="点击下方按钮开始扫描附近的蓝牙设备"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/scanButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="开始扫描"
+            android:textSize="16sp"
+            android:background="#2196F3"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
+
+    <!-- 设备列表 -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginBottom="16dp"/>
+        android:orientation="vertical"
+        android:background="@android:color/white"
+        android:padding="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp">
 
-    <!-- 显示选中的设备信息 -->
-    <TextView
-        android:id="@+id/selectedDeviceInfo"
-        android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="发现的设备"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black" />
+
+            <TextView
+                android:id="@+id/deviceCountText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0个设备"
+                android:textSize="12sp"
+                android:textColor="#666666"
+                android:background="#E3F2FD"
+                android:padding="6dp" />
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#CCCCCC"
+            android:layout_marginBottom="12dp" />
+
+        <!-- 设备列表容器 -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/deviceListView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scrollbars="vertical"
+                android:visibility="gone" />
+
+            <!-- 空状态提示 -->
+            <LinearLayout
+                android:id="@+id/emptyStateLayout"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:visibility="visible">
+
+
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="暂无发现设备"
+                    android:textSize="14sp"
+                    android:textColor="#666666"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="请点击上方扫描按钮开始搜索"
+                    android:textSize="12sp"
+                    android:textColor="#666666" />
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+    </LinearLayout>
+
+    <!-- 帮助信息 -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="选中设备: 无"
-        android:textSize="14sp"
-        android:textColor="?attr/colorOnSurface"
-        android:layout_gravity="center"/>
+        android:orientation="vertical"
+        android:background="@android:color/white"
+        android:padding="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💡 使用说明"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1. 确保蓝牙已开启\n2. 点击扫描按钮搜索设备\n3. 从列表中选择您的设备\n4. 返回主界面进行连接"
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:lineSpacingExtra="4dp" />
+
+    </LinearLayout>
 
 </LinearLayout>

@@ -19,11 +19,9 @@ public class PlotView extends View {
     private final Paint plotPaint = new Paint();
     private float axisPadding = 10f;  // 调整坐标轴的填充量
 
-    // 自定义颜色
     private int axisColor = Color.parseColor("#ABD0B1"); // 坐标轴颜色
     private int plotColor = Color.parseColor("#00FF00"); // 曲线颜色
 
-    // Y轴的最大值和最小值，基于当前可见的最新数据来计算
     private int maxY = Integer.MIN_VALUE;
     private int minY = Integer.MAX_VALUE;
 
@@ -64,26 +62,20 @@ public class PlotView extends View {
         invalidate();  // 重新绘制
     }
 
-    // 添加数据点并更新 Y 轴的最大最小值
     public void addValue(int value) {
-        // 如果当前系列的缓存超过最大大小，则移除最旧的点
         if (dataBuffer.size() >= bufferSize) {
             dataBuffer.remove(0);
         }
 
-        // 添加新的数据点
         dataBuffer.add(value);
 
-        // 动态更新 Y 轴的最大最小值，只考虑当前显示的部分
         updateYRange();
 
-        // 动态调整Y轴范围，当数据变化较小的时候，扩大Y轴范围
         adjustYScale();
 
-        postInvalidate(); // 请求重新绘制
+        postInvalidate();
     }
 
-    // 清除所有数据并重置 Y 轴范围
     public void clearPlot() {
         dataBuffer.clear();
         maxY = Integer.MIN_VALUE;
