@@ -287,7 +287,6 @@
 
                 </com.google.android.material.card.MaterialCardView>
 
-
             </LinearLayout>
 
         </ScrollView>
@@ -610,6 +609,8 @@
                     </LinearLayout>
 
                 </com.google.android.material.card.MaterialCardView>
+
+                <!-- 陀螺仪数据实时图表 -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -807,7 +808,6 @@
 
                 </com.google.android.material.card.MaterialCardView>
 
-
             </LinearLayout>
 
         </ScrollView>
@@ -849,7 +849,7 @@
 
                 </LinearLayout>
 
-                <!-- 录制设置 -->
+                <!-- 运动控制卡片 -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -866,7 +866,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Recording Settings"
+                            android:text="Exercise Control"
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="@android:color/black"
@@ -875,16 +875,16 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Total Duration (seconds)"
+                            android:text="Total Exercise Duration (seconds)"
                             android:textSize="14sp"
                             android:textColor="@android:color/darker_gray"
                             android:layout_marginBottom="8dp" />
 
                         <EditText
-                            android:id="@+id/totalDurationInput"
+                            android:id="@+id/exerciseTotalDurationInput"
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
-                            android:text="120"
+                            android:text="300"
                             android:inputType="number"
                             android:background="@drawable/edittext_background"
                             android:padding="12dp"
@@ -894,13 +894,13 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Segment Duration (seconds)"
+                            android:text="Exercise Segment Duration (seconds)"
                             android:textSize="14sp"
                             android:textColor="@android:color/darker_gray"
                             android:layout_marginBottom="8dp" />
 
                         <EditText
-                            android:id="@+id/segmentDurationInput"
+                            android:id="@+id/exerciseSegmentDurationInput"
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
                             android:text="60"
@@ -910,14 +910,43 @@
                             android:textSize="14sp"
                             android:layout_marginBottom="16dp" />
 
-                        <Button
-                            android:id="@+id/startOfflineButton"
-                            android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:text="Start Offline Recording"
+                        <TextView
+                            android:id="@+id/exerciseStatusText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="运动状态: 就绪"
                             android:textSize="14sp"
-                            android:background="@drawable/button_blue_bg"
-                            android:textColor="@android:color/white" />
+                            android:textColor="@android:color/darker_gray"
+                            android:layout_marginBottom="16dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/startExerciseButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Start Exercise"
+                                android:textSize="14sp"
+                                android:background="@drawable/button_green_bg"
+                                android:textColor="@android:color/white"
+                                android:layout_marginEnd="8dp" />
+
+                            <Button
+                                android:id="@+id/stopExerciseButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Stop Exercise"
+                                android:textSize="14sp"
+                                android:background="@drawable/button_gray_bg"
+                                android:textColor="@android:color/white"
+                                android:layout_marginStart="8dp" />
+
+                        </LinearLayout>
 
                     </LinearLayout>
 
@@ -957,7 +986,7 @@
                                 android:id="@+id/fileListStatus"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="4 files, 1 selected"
+                                android:text="0 files, 0 selected"
                                 android:textSize="12sp"
                                 android:textColor="@android:color/darker_gray" />
 
@@ -991,7 +1020,7 @@
                             android:id="@+id/downloadSelectedButton"
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
-                            android:text="Download Selected (1)"
+                            android:text="Download Selected (0)"
                             android:textSize="14sp"
                             android:background="@drawable/button_orange_bg"
                             android:textColor="@android:color/white" />
@@ -1017,15 +1046,96 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
+                <!-- 日志标题 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Logs"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@android:color/black"
-                    android:layout_marginBottom="16dp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp">
 
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_description"
+                        android:layout_marginEnd="8dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="System Logs"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@android:color/black" />
+
+                </LinearLayout>
+
+                <!-- 日志记录控制卡片 -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Log Recording Control"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/black"
+                            android:layout_marginBottom="12dp" />
+
+                        <TextView
+                            android:id="@+id/logStatusText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="状态: 就绪"
+                            android:textSize="14sp"
+                            android:textColor="@android:color/darker_gray"
+                            android:layout_marginBottom="16dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/startLogRecordingButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="开始记录"
+                                android:textSize="14sp"
+                                android:background="@drawable/button_green_bg"
+                                android:textColor="@android:color/white"
+                                android:layout_marginEnd="8dp" />
+
+                            <Button
+                                android:id="@+id/stopLogRecordingButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="停止记录"
+                                android:textSize="14sp"
+                                android:background="@drawable/button_gray_bg"
+                                android:textColor="@android:color/white"
+                                android:layout_marginStart="8dp" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 日志显示卡片 -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -1041,18 +1151,28 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Application Logs"
+                            android:text="Real-time Log Display"
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="@android:color/black"
                             android:layout_marginBottom="12dp" />
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Log files will be displayed here..."
-                            android:textSize="14sp"
-                            android:textColor="@android:color/darker_gray" />
+                        <ScrollView
+                            android:layout_width="match_parent"
+                            android:layout_height="300dp"
+                            android:padding="12dp">
+
+                            <TextView
+                                android:id="@+id/logDisplayText"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="日志将显示在这里..."
+                                android:textSize="12sp"
+                                android:textColor="@android:color/black"
+                                android:fontFamily="monospace"
+                                android:lineSpacingMultiplier="1.2" />
+
+                        </ScrollView>
 
                     </LinearLayout>
 

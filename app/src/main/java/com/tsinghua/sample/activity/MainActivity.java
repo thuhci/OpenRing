@@ -6,8 +6,10 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Environment;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -15,8 +17,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentTransaction;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.card.MaterialCardView;
@@ -29,8 +29,19 @@ import com.tsinghua.sample.R;
 import com.tsinghua.sample.PlotView;
 import com.tsinghua.sample.utils.NotificationHandler;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.TimeZone;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity implements IResponseListener {
 
@@ -56,14 +67,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private LinearLayout fileListContainer;
     private BottomNavigationView bottomNavigation;
 
-    // PPG数据显示
-    private TextView ppgGreenText;
-    private TextView ppgIrText;
-    private TextView ppgRedText;
-    private TextView xAxisText;
-    private TextView yAxisText;
-    private TextView zAxisText;
-
     // 状态变量
     private boolean isConnected = false;
     private boolean isRecording = false;
@@ -86,14 +89,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private int timeSyncFrameId = 0;
     private long timeSyncRequestTime = 0;
 
-    // 模拟数据
-    private int ppgGreen = 1024;
-    private int ppgIr = 856;
-    private int ppgRed = 732;
-    private float xAxis = 0.12f;
-    private float yAxis = -0.05f;
-    private float zAxis = 9.81f;
-
     // 在线测量相关
     private EditText measurementTimeInput;
     private Button startMeasurementButton;
@@ -104,6 +99,108 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private PlotView plotViewGyroX, plotViewGyroY, plotViewGyroZ;
     private PlotView plotViewTemp0, plotViewTemp1, plotViewTemp2;
     private boolean isMeasuring = false;
+
+    // 文件操作相关
+    private List<FileInfo> fileList = new ArrayList<>();
+    private List<FileInfo> selectedFiles = new ArrayList<>();
+    private boolean isDownloadingFiles = false;
+    private int currentDownloadIndex = 0;
+
+    // 运动控制相关
+    private EditText exerciseTotalDurationInput;
+    private EditText exerciseSegmentDurationInput;
+    private Button startExerciseButton;
+    private Button stopExerciseButton;
+    private TextView exerciseStatusText;
+    private boolean isExercising = false;
+
+    // 日志记录相关
+    private Button startLogRecordingButton;
+    private Button stopLogRecordingButton;
+    private TextView logStatusText;
+    private TextView logDisplayText;
+    private BufferedWriter logWriter;
+    private boolean isLogRecording = false;
+
+    // 测量相关
+    private Timer measurementTimer;
+    private int measurementElapsed = 0;
+    private int totalMeasurementTime = 0;
+
+    // 文件信息类
+    public static class FileInfo {
+        public String fileName;
+        public int fileSize;
+        public int fileType;
+        public String userId;
+        public String timestamp;
+        public boolean isSelected = false;
+
+        public FileInfo(String fileName, int fileSize) {
+            this.fileName = fileName;
+            this.fileSize = fileSize;
+            parseFileName();
+        }
+
+        private void parseFileName() {
+            String[] parts = fileName.replace(".bin", "").split("_");
+            if (parts.length >= 3) {
+                this.userId = parts[0];
+                this.timestamp = convertUTCToChinaTime(parts[1]+parts[2]+parts[3]);
+                this.fileType = Integer.parseInt(parts[parts.length-1]);
+            }
+        }
+
+        public String getFileTypeDescription() {
+            switch (fileType) {
+                case 1: return "三轴数据";
+                case 2: return "六轴数据";
+                case 3: return "PPG数据红外+红色+三轴(spo2)";
+                case 4: return "PPG数据绿色";
+                case 5: return "PPG数据红外";
+                case 6: return "温度数据红外";
+                case 7: return "红外+红色+绿色+温度+三轴";
+                case 8: return "PPG数据绿色+三轴(hr)";
+                default: return "未知类型";
+            }
+        }
+
+        public String getFormattedSize() {
+            if (fileSize < 1024) {
+                return fileSize + " B";
+            } else if (fileSize < 1024 * 1024) {
+                return String.format("%.1f KB", fileSize / 1024.0);
+            } else {
+                return String.format("%.1f MB", fileSize / (1024.0 * 1024.0));
+            }
+        }
+
+        private static String convertUTCToChinaTime(String utcTimeStr) {
+            try {
+                if (utcTimeStr == null || utcTimeStr.length() < 15) {
+                    return utcTimeStr;
+                }
+
+                String dateStr = utcTimeStr.substring(0, 8);
+                String timeStr = utcTimeStr.substring(9);
+                String year = dateStr.substring(0, 4);
+                String month = dateStr.substring(4, 6);
+                String day = dateStr.substring(6, 8);
+                String fullUtcTimeStr = String.format("%s-%s-%s %s", year, month, day, timeStr);
+
+                SimpleDateFormat utcFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+                utcFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+                Date utcDate = utcFormat.parse(fullUtcTimeStr);
+
+                SimpleDateFormat chinaFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+                chinaFormat.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
+                return chinaFormat.format(utcDate);
+
+            } catch (Exception e) {
+                return utcTimeStr;
+            }
+        }
+    }
 
     // 自定义指令监听器
     private ICustomizeCmdListener customizeCmdListener = new ICustomizeCmdListener() {
@@ -130,12 +227,11 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         initializeViews();
         setupBottomNavigation();
         setupClickListeners();
+        setupNotificationHandler();
         loadDeviceInfo();
 
         // 显示Dashboard页面
         showDashboard();
-
-
     }
 
     private void initializeViews() {
@@ -152,15 +248,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         connectButton = findViewById(R.id.connectButton);
         updateTimeButton = findViewById(R.id.updateTimeButton);
         calibrateButton = findViewById(R.id.calibrateButton);
-
-        startOfflineButton = findViewById(R.id.startOfflineButton);
         getFileListButton = findViewById(R.id.getFileListButton);
         downloadSelectedButton = findViewById(R.id.downloadSelectedButton);
 
         // 输入框
-        totalDurationInput = findViewById(R.id.totalDurationInput);
-        segmentDurationInput = findViewById(R.id.segmentDurationInput);
-
         // 文件列表
         fileListStatus = findViewById(R.id.fileListStatus);
         fileListContainer = findViewById(R.id.fileListContainer);
@@ -171,6 +262,19 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         stopMeasurementButton = findViewById(R.id.stopMeasurementButton);
         measurementStatusText = findViewById(R.id.measurementStatusText);
 
+        // 运动控制相关
+        exerciseTotalDurationInput = findViewById(R.id.exerciseTotalDurationInput);
+        exerciseSegmentDurationInput = findViewById(R.id.exerciseSegmentDurationInput);
+        startExerciseButton = findViewById(R.id.startExerciseButton);
+        stopExerciseButton = findViewById(R.id.stopExerciseButton);
+        exerciseStatusText = findViewById(R.id.exerciseStatusText);
+
+        // 日志记录相关
+        startLogRecordingButton = findViewById(R.id.startLogRecordingButton);
+        stopLogRecordingButton = findViewById(R.id.stopLogRecordingButton);
+        logStatusText = findViewById(R.id.logStatusText);
+        logDisplayText = findViewById(R.id.logDisplayText);
+
         // 初始化PlotView
         plotViewG = findViewById(R.id.plotViewG);
         plotViewI = findViewById(R.id.plotViewI);
@@ -178,35 +282,56 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         plotViewX = findViewById(R.id.plotViewX);
         plotViewY = findViewById(R.id.plotViewY);
         plotViewZ = findViewById(R.id.plotViewZ);
-
-        // 初始化陀螺仪PlotView
         plotViewGyroX = findViewById(R.id.plotViewGyroX);
         plotViewGyroY = findViewById(R.id.plotViewGyroY);
         plotViewGyroZ = findViewById(R.id.plotViewGyroZ);
-
-        // 初始化温度PlotView
         plotViewTemp0 = findViewById(R.id.plotViewTemp0);
         plotViewTemp1 = findViewById(R.id.plotViewTemp1);
         plotViewTemp2 = findViewById(R.id.plotViewTemp2);
 
         // 设置PlotView颜色
+        setupPlotViewColors();
+
+        // 底部导航
+        bottomNavigation = findViewById(R.id.bottomNavigation);
+
+        // 设置默认值
+        setDefaultValues();
+
+        // 初始化状态
+        updateConnectionStatus(false);
+        updateMeasurementUI(false);
+        updateExerciseUI(false);
+        updateLogRecordingUI(false);
+    }
+
+    private void setupPlotViewColors() {
         if (plotViewG != null) plotViewG.setPlotColor(Color.parseColor("#4CAF50"));
         if (plotViewI != null) plotViewI.setPlotColor(Color.parseColor("#FF9800"));
         if (plotViewR != null) plotViewR.setPlotColor(Color.parseColor("#F44336"));
         if (plotViewX != null) plotViewX.setPlotColor(Color.parseColor("#2196F3"));
         if (plotViewY != null) plotViewY.setPlotColor(Color.parseColor("#9C27B0"));
         if (plotViewZ != null) plotViewZ.setPlotColor(Color.parseColor("#00BCD4"));
-
-        // 设置陀螺仪PlotView颜色
         if (plotViewGyroX != null) plotViewGyroX.setPlotColor(Color.parseColor("#FF6B6B"));
         if (plotViewGyroY != null) plotViewGyroY.setPlotColor(Color.parseColor("#4ECDC4"));
         if (plotViewGyroZ != null) plotViewGyroZ.setPlotColor(Color.parseColor("#45B7D1"));
-
-        // 设置温度PlotView颜色
         if (plotViewTemp0 != null) plotViewTemp0.setPlotColor(Color.parseColor("#FFA726"));
         if (plotViewTemp1 != null) plotViewTemp1.setPlotColor(Color.parseColor("#FF7043"));
         if (plotViewTemp2 != null) plotViewTemp2.setPlotColor(Color.parseColor("#FF5722"));
+    }
 
+    private void setDefaultValues() {
+        if (totalDurationInput != null) totalDurationInput.setText("120");
+        if (segmentDurationInput != null) segmentDurationInput.setText("60");
+        if (fileListStatus != null) fileListStatus.setText("0 files, 0 selected");
+        if (measurementTimeInput != null) measurementTimeInput.setText("30");
+        if (exerciseTotalDurationInput != null) exerciseTotalDurationInput.setText("300");
+        if (exerciseSegmentDurationInput != null) exerciseSegmentDurationInput.setText("60");
+        if (logStatusText != null) logStatusText.setText("状态: 就绪");
+        if (logDisplayText != null) logDisplayText.setText("日志将显示在这里...");
+    }
+
+    private void setupNotificationHandler() {
         // 连接NotificationHandler的PlotView
         NotificationHandler.setPlotViewG(plotViewG);
         NotificationHandler.setPlotViewI(plotViewI);
@@ -214,13 +339,9 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         NotificationHandler.setPlotViewX(plotViewX);
         NotificationHandler.setPlotViewY(plotViewY);
         NotificationHandler.setPlotViewZ(plotViewZ);
-
-        // 连接NotificationHandler的陀螺仪PlotView
         NotificationHandler.setPlotViewGyroX(plotViewGyroX);
         NotificationHandler.setPlotViewGyroY(plotViewGyroY);
         NotificationHandler.setPlotViewGyroZ(plotViewGyroZ);
-
-        // 连接NotificationHandler的温度PlotView
         NotificationHandler.setPlotViewTemp0(plotViewTemp0);
         NotificationHandler.setPlotViewTemp1(plotViewTemp1);
         NotificationHandler.setPlotViewTemp2(plotViewTemp2);
@@ -229,7 +350,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         NotificationHandler.setDeviceCommandCallback(new NotificationHandler.DeviceCommandCallback() {
             @Override
             public void sendCommand(byte[] commandData) {
-                // 发送自定义指令
                 LmAPI.CUSTOMIZE_CMD(commandData, customizeCmdListener);
                 recordLog("发送设备指令: " + bytesToHexString(commandData));
             }
@@ -237,39 +357,73 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             @Override
             public void onMeasurementStarted() {
                 recordLog("【测量开始】");
-                // 可以在这里更新UI状态
+                mainHandler.post(() -> {
+                    updateMeasurementUI(true);
+                    updateMeasurementStatus("测量中...");
+                });
             }
 
             @Override
             public void onMeasurementStopped() {
                 recordLog("【测量停止】");
-                // 可以在这里更新UI状态
+                mainHandler.post(() -> {
+                    updateMeasurementUI(false);
+                    updateMeasurementStatus("已停止");
+                });
             }
 
             @Override
             public void onExerciseStarted(int duration, int segmentTime) {
                 recordLog(String.format("【运动开始】总时长: %d秒, 片段: %d秒", duration, segmentTime));
+                mainHandler.post(() -> {
+                    updateExerciseUI(true);
+                    updateExerciseStatus("运动中...");
+                });
             }
 
             @Override
             public void onExerciseStopped() {
                 recordLog("【运动停止】");
+                mainHandler.post(() -> {
+                    updateExerciseUI(false);
+                    updateExerciseStatus("已停止");
+                });
             }
         });
 
-        // 底部导航
-        bottomNavigation = findViewById(R.id.bottomNavigation);
+        // 设置文件操作回调
+        NotificationHandler.setFileResponseCallback(new NotificationHandler.FileResponseCallback() {
+            @Override
+            public void onFileListReceived(byte[] data) {
+                handleFileListResponse(data);
+            }
 
-        // 设置默认值
-        totalDurationInput.setText("120");
-        segmentDurationInput.setText("60");
-        fileListStatus.setText("4 files, 1 selected");
-        if (measurementTimeInput != null) {
-            measurementTimeInput.setText("30");
-        }
+            @Override
+            public void onFileDataReceived(byte[] data) {
+                handleFileDataResponse(data);
+            }
+        });
 
-        // 初始化状态
-        updateConnectionStatus(false);
+        // 设置时间同步回调
+        NotificationHandler.setTimeSyncCallback(new NotificationHandler.TimeSyncCallback() {
+            @Override
+            public void onTimeSyncResponse(byte[] data) {
+                handleTimeSyncResponse(data);
+            }
+
+            @Override
+            public void onTimeUpdateResponse(byte[] data) {
+                handleTimeUpdateResponse(data);
+            }
+        });
+
+        // 设置日志记录器
+        NotificationHandler.setLogRecorder(new NotificationHandler.LogRecorder() {
+            @Override
+            public void recordLog(String message) {
+                MainActivity.this.recordLog(message);
+            }
+        });
     }
 
     private void setupBottomNavigation() {
@@ -301,7 +455,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         connectButton.setOnClickListener(v -> connectToDevice());
         updateTimeButton.setOnClickListener(v -> updateDeviceTime());
         calibrateButton.setOnClickListener(v -> calibrateTime());
-        startOfflineButton.setOnClickListener(v -> startOfflineRecording());
         getFileListButton.setOnClickListener(v -> getFileList());
         downloadSelectedButton.setOnClickListener(v -> downloadSelectedFiles());
 
@@ -312,42 +465,25 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         if (stopMeasurementButton != null) {
             stopMeasurementButton.setOnClickListener(v -> stopOnlineMeasurement());
         }
-    }
 
-    private void loadDeviceInfo() {
-        SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
-        macAddress = prefs.getString("mac_address", "");
+        // 运动控制按钮
+        if (startExerciseButton != null) {
+            startExerciseButton.setOnClickListener(v -> startExercise());
+        }
+        if (stopExerciseButton != null) {
+            stopExerciseButton.setOnClickListener(v -> stopExercise());
+        }
 
-        if (!macAddress.isEmpty()) {
-            macAddressText.setText("MAC: " + macAddress + " | Version: " + version);
-        } else {
-            macAddressText.setText("MAC: Not Selected | Version: --");
+        // 日志记录按钮
+        if (startLogRecordingButton != null) {
+            startLogRecordingButton.setOnClickListener(v -> startLogRecording());
+        }
+        if (stopLogRecordingButton != null) {
+            stopLogRecordingButton.setOnClickListener(v -> stopLogRecording());
         }
     }
 
-    private void updateConnectionStatus(boolean connected) {
-        isConnected = connected;
-        if (connected && connectionStatus == 7) {
-            statusText.setText("Connected");
-            statusText.setTextColor(Color.WHITE);
-            statusIndicator.setText("✓ " + deviceName);
-            statusIndicator.setTextColor(Color.parseColor("#4CAF50"));
-            connectButton.setText("Connected");
-            connectButton.setBackgroundColor(Color.parseColor("#4CAF50"));
-            ringIdText.setText("Ring ID: " + deviceName);
-            macAddressText.setText("MAC: " + macAddress + " | Version: " + version);
-            batteryText.setText(batteryLevel + "%");
-        } else {
-            statusText.setText("Disconnected");
-            statusText.setTextColor(Color.parseColor("#FF5722"));
-            statusIndicator.setText("✗ Disconnected");
-            statusIndicator.setTextColor(Color.parseColor("#FF5722"));
-            connectButton.setText("Connect");
-            connectButton.setBackgroundColor(Color.parseColor("#2196F3"));
-            ringIdText.setText("Ring ID: --");
-            batteryText.setText("--");
-        }
-    }
+    // ==================== 页面切换 ====================
 
     private void showDashboard() {
         hideAllViews();
@@ -368,7 +504,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private void showLogs() {
         hideAllViews();
         findViewById(R.id.logsLayout).setVisibility(View.VISIBLE);
-        // 可以在这里添加日志显示逻辑
     }
 
     private void hideAllViews() {
@@ -378,97 +513,404 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         findViewById(R.id.logsLayout).setVisibility(View.GONE);
     }
 
+    // ==================== 文件操作功能 ====================
+
+    private void getFileList() {
+        if (!isConnected || connectionStatus != 7) {
+            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        recordLog("【请求文件列表】使用自定义指令");
+        try {
+            String hexCommand = String.format("00%02X3610", generateRandomFrameId());
+            byte[] data = hexStringToByteArray(hexCommand);
+            recordLog("发送文件列表命令: " + hexCommand);
+            LmAPI.CUSTOMIZE_CMD(data, customizeCmdListener);
+
+            fileList.clear();
+            selectedFiles.clear();
+            updateFileListUI();
+
+            mainHandler.post(() -> {
+                getFileListButton.setText("获取中...");
+                getFileListButton.setEnabled(false);
+            });
+
+        } catch (Exception e) {
+            recordLog("发送文件列表请求失败: " + e.getMessage());
+            Toast.makeText(this, "获取文件列表失败", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void handleFileListResponse(byte[] data) {
+        try {
+            if (data == null || data.length < 12) {
+                recordLog("文件列表响应数据长度不足");
+                return;
+            }
+
+            int totalFiles = readUInt32LE(data, 4);
+            int seqNum = readUInt32LE(data, 8);
+            int fileSize = readUInt32LE(data, 12);
+
+            recordLog(String.format("文件列表信息 - 总数: %d, 序号: %d, 大小: %d", totalFiles, seqNum, fileSize));
+
+            if (totalFiles > 0 && data.length > 16) {
+                // 解析文件名
+                byte[] fileNameBytes = new byte[data.length - 16];
+                System.arraycopy(data, 16, fileNameBytes, 0, fileNameBytes.length);
+
+                String fileName = new String(fileNameBytes, "UTF-8").trim();
+                fileName = fileName.replace("\0", "");
+
+                if (!fileName.isEmpty()) {
+                    FileInfo fileInfo = new FileInfo(fileName, fileSize);
+                    fileList.add(fileInfo);
+                    recordLog("添加文件: " + fileName + " (" + fileInfo.getFormattedSize() + ")");
+                }
+            }
+
+            mainHandler.post(() -> {
+                updateFileListUI();
+                getFileListButton.setText("获取文件列表");
+                getFileListButton.setEnabled(true);
+                if (fileList.size() > 0) {
+                    Toast.makeText(this, "获取到 " + fileList.size() + " 个文件", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+        } catch (Exception e) {
+            recordLog("解析文件列表失败: " + e.getMessage());
+            mainHandler.post(() -> {
+                getFileListButton.setText("获取文件列表");
+                getFileListButton.setEnabled(true);
+            });
+        }
+    }
+
+    private void handleFileDataResponse(byte[] data) {
+        recordLog("收到文件数据响应，长度: " + data.length);
+        // 这里可以处理文件数据的保存逻辑
+    }
+
+    private void downloadSelectedFiles() {
+        if (selectedFiles.isEmpty()) {
+            Toast.makeText(this, "请先选择要下载的文件", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (!isConnected || connectionStatus != 7) {
+            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        isDownloadingFiles = true;
+        currentDownloadIndex = 0;
+        recordLog(String.format("【开始批量下载】选中文件数: %d", selectedFiles.size()));
+
+        downloadNextSelectedFile();
+    }
+
+    private void downloadNextSelectedFile() {
+        if (currentDownloadIndex >= selectedFiles.size()) {
+            isDownloadingFiles = false;
+            mainHandler.post(() -> {
+                downloadSelectedButton.setText("下载选中 (" + selectedFiles.size() + ")");
+                downloadSelectedButton.setEnabled(true);
+                Toast.makeText(this, "所有文件下载完成", Toast.LENGTH_SHORT).show();
+            });
+            return;
+        }
+
+        FileInfo fileInfo = selectedFiles.get(currentDownloadIndex);
+        recordLog(String.format("下载进度 %d/%d: %s", currentDownloadIndex + 1, selectedFiles.size(), fileInfo.fileName));
+
+        try {
+            byte[] fileNameBytes = fileInfo.fileName.getBytes("UTF-8");
+            String hexCommand = String.format("00%02X3611", generateRandomFrameId());
+            StringBuilder sb = new StringBuilder(hexCommand);
+            for (byte b : fileNameBytes) {
+                sb.append(String.format("%02X", b & 0xFF));
+            }
+
+            byte[] commandData = hexStringToByteArray(sb.toString());
+            LmAPI.CUSTOMIZE_CMD(commandData, customizeCmdListener);
+
+            currentDownloadIndex++;
+            mainHandler.postDelayed(this::downloadNextSelectedFile, 2000);
+
+        } catch (Exception e) {
+            recordLog("下载文件失败: " + e.getMessage());
+            currentDownloadIndex++;
+            mainHandler.postDelayed(this::downloadNextSelectedFile, 1000);
+        }
+    }
 
     private void setupFileList() {
         fileListContainer.removeAllViews();
 
-        // 模拟文件列表
-        String[] fileNames = {
-                "010203040506_2025_06_23:13:31:31-...",
-                "010203040506_2025_06_23:13:32:00-...",
-                "010203040506_2025_06_23:14:06:47-..."
-        };
-
-        String[] fileSizes = {"190.4 KB", "192.1 KB", "1.8 MB"};
-        String[] fileTimes = {"2025-06-23 21:31:31", "2025-06-23 21:32:00", "2025-06-23 22:06:47"};
-        boolean[] selected = {false, true, false};
-
-        for (int i = 0; i < fileNames.length; i++) {
-            addFileItem(fileNames[i], fileSizes[i], fileTimes[i], selected[i]);
+        for (FileInfo fileInfo : fileList) {
+            addFileItem(fileInfo);
         }
+
+        updateFileListUI();
     }
 
-    private void addFileItem(String fileName, String fileSize, String time, boolean isSelected) {
+    private void addFileItem(FileInfo fileInfo) {
         LinearLayout fileItem = new LinearLayout(this);
         fileItem.setOrientation(LinearLayout.HORIZONTAL);
         fileItem.setPadding(16, 12, 16, 12);
+        fileItem.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        // 创建选择框
-        androidx.appcompat.widget.AppCompatCheckBox checkBox = new androidx.appcompat.widget.AppCompatCheckBox(this);
-        checkBox.setChecked(isSelected);
+        CheckBox checkBox = new CheckBox(this);
+        checkBox.setChecked(fileInfo.isSelected);
+        checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            fileInfo.isSelected = isChecked;
+            updateSelectedFiles();
+        });
 
-        // 创建文件信息布局
-        LinearLayout fileInfo = new LinearLayout(this);
-        fileInfo.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams fileInfoParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
-        fileInfoParams.setMargins(24, 0, 0, 0);
-        fileInfo.setLayoutParams(fileInfoParams);
+        LinearLayout fileInfoLayout = new LinearLayout(this);
+        fileInfoLayout.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        layoutParams.setMargins(24, 0, 0, 0);
+        fileInfoLayout.setLayoutParams(layoutParams);
 
-        // 文件名
-        TextView fileNameView = new TextView(this);
-        fileNameView.setText(fileName);
-        fileNameView.setTextSize(12);
-        fileNameView.setTextColor(Color.BLACK);
+        TextView fileName = new TextView(this);
+        fileName.setText(fileInfo.fileName);
+        fileName.setTextSize(12);
+        fileName.setTextColor(Color.BLACK);
 
-        // 文件详情
         TextView fileDetails = new TextView(this);
-        fileDetails.setText("IR+Red+Green+Temp+3-Axis | " + fileSize + " | " + time);
+        fileDetails.setText(fileInfo.getFileTypeDescription() + " | " + fileInfo.getFormattedSize() + " | " + fileInfo.timestamp);
         fileDetails.setTextSize(10);
         fileDetails.setTextColor(Color.GRAY);
 
-        fileInfo.addView(fileNameView);
-        fileInfo.addView(fileDetails);
+        fileInfoLayout.addView(fileName);
+        fileInfoLayout.addView(fileDetails);
 
         fileItem.addView(checkBox);
-        fileItem.addView(fileInfo);
+        fileItem.addView(fileInfoLayout);
 
-        // 设置点击事件
         fileItem.setOnClickListener(v -> {
             checkBox.setChecked(!checkBox.isChecked());
-            updateDownloadButton();
         });
 
         fileListContainer.addView(fileItem);
     }
 
-    private void updateDownloadButton() {
-        // 这里可以计算选中的文件数量并更新按钮文本
-        downloadSelectedButton.setText("Download Selected (1)");
+    private void updateSelectedFiles() {
+        selectedFiles.clear();
+        for (FileInfo file : fileList) {
+            if (file.isSelected) {
+                selectedFiles.add(file);
+            }
+        }
+        updateFileListUI();
     }
 
-    private void clearAllPlots() {
-        // PPG图表
-        if (plotViewG != null) plotViewG.clearPlot();
-        if (plotViewI != null) plotViewI.clearPlot();
-        if (plotViewR != null) plotViewR.clearPlot();
-
-        // 加速度计图表
-        if (plotViewX != null) plotViewX.clearPlot();
-        if (plotViewY != null) plotViewY.clearPlot();
-        if (plotViewZ != null) plotViewZ.clearPlot();
-
-        // 陀螺仪图表
-        if (plotViewGyroX != null) plotViewGyroX.clearPlot();
-        if (plotViewGyroY != null) plotViewGyroY.clearPlot();
-        if (plotViewGyroZ != null) plotViewGyroZ.clearPlot();
-
-        // 温度图表
-        if (plotViewTemp0 != null) plotViewTemp0.clearPlot();
-        if (plotViewTemp1 != null) plotViewTemp1.clearPlot();
-        if (plotViewTemp2 != null) plotViewTemp2.clearPlot();
+    private void updateFileListUI() {
+        mainHandler.post(() -> {
+            fileListStatus.setText(String.format("共%d个文件，已选%d个", fileList.size(), selectedFiles.size()));
+            downloadSelectedButton.setText("下载选中 (" + selectedFiles.size() + ")");
+            downloadSelectedButton.setEnabled(selectedFiles.size() > 0 && !isDownloadingFiles);
+        });
     }
 
-    // 在线测量功能
+    // ==================== 运动控制功能 ====================
+
+    private void startExercise() {
+        if (!isConnected || connectionStatus != 7) {
+            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (isExercising) {
+            Toast.makeText(this, "运动正在进行中", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            String totalDurationStr = exerciseTotalDurationInput.getText().toString().trim();
+            String segmentDurationStr = exerciseSegmentDurationInput.getText().toString().trim();
+
+            if (totalDurationStr.isEmpty() || segmentDurationStr.isEmpty()) {
+                Toast.makeText(this, "请输入运动时长和片段时长", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            int totalDuration = Integer.parseInt(totalDurationStr);
+            int segmentDuration = Integer.parseInt(segmentDurationStr);
+
+            if (totalDuration < 60 || totalDuration > 86400) {
+                Toast.makeText(this, "运动总时长应在60-86400秒之间", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (segmentDuration < 30 || segmentDuration > totalDuration) {
+                Toast.makeText(this, "片段时长应在30秒到总时长之间", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            NotificationHandler.setExerciseParams(totalDuration, segmentDuration);
+            boolean success = NotificationHandler.startExercise();
+
+            if (success) {
+                isExercising = true;
+                recordLog(String.format("【开始运动】总时长: %d秒, 片段: %d秒", totalDuration, segmentDuration));
+                updateExerciseUI(true);
+                updateExerciseStatus(String.format("运动中 - 总时长: %d分钟, 片段: %d分钟", totalDuration/60, segmentDuration/60));
+                Toast.makeText(this, "运动开始", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "开始运动失败", Toast.LENGTH_SHORT).show();
+            }
+
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, "请输入有效的数字", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            recordLog("开始运动失败: " + e.getMessage());
+            Toast.makeText(this, "开始运动失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void stopExercise() {
+        if (!isExercising) {
+            Toast.makeText(this, "当前没有正在进行的运动", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            boolean success = NotificationHandler.stopExercise();
+            if (success) {
+                isExercising = false;
+                recordLog("【结束运动】用户手动停止");
+                updateExerciseUI(false);
+                updateExerciseStatus("已停止");
+                Toast.makeText(this, "运动已停止", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "停止运动失败", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            recordLog("停止运动失败: " + e.getMessage());
+            Toast.makeText(this, "停止运动失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void updateExerciseUI(boolean exercising) {
+        if (startExerciseButton != null) {
+            startExerciseButton.setEnabled(!exercising);
+            startExerciseButton.setText(exercising ? "运动中..." : "开始运动");
+        }
+
+        if (stopExerciseButton != null) {
+            stopExerciseButton.setEnabled(exercising);
+            stopExerciseButton.setBackgroundColor(exercising ? Color.parseColor("#F44336") : Color.GRAY);
+        }
+    }
+
+    private void updateExerciseStatus(String status) {
+        if (exerciseStatusText != null) {
+            exerciseStatusText.setText("运动状态: " + status);
+        }
+    }
+
+    // ==================== 日志记录功能 ====================
+
+    private void startLogRecording() {
+        if (isLogRecording) {
+            Toast.makeText(this, "日志记录正在进行中", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            createLogFile();
+            isLogRecording = true;
+
+            recordLog("=".repeat(50));
+            recordLog("【开始日志记录会话】时间: " + getCurrentTimestamp());
+            recordLog("设备: " + deviceName);
+            recordLog("MAC: " + macAddress);
+            recordLog("=".repeat(50));
+
+            updateLogRecordingUI(true);
+            updateLogStatus("录制中...");
+            Toast.makeText(this, "日志记录开始", Toast.LENGTH_SHORT).show();
+
+        } catch (IOException e) {
+            recordLog("创建日志文件失败: " + e.getMessage());
+            Toast.makeText(this, "创建日志文件失败", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void stopLogRecording() {
+        if (!isLogRecording) {
+            Toast.makeText(this, "当前没有正在进行的日志记录", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        recordLog("=".repeat(50));
+        recordLog("【结束日志记录会话】时间: " + getCurrentTimestamp());
+        recordLog("=".repeat(50));
+
+        isLogRecording = false;
+        updateLogRecordingUI(false);
+        updateLogStatus("就绪");
+
+        try {
+            if (logWriter != null) {
+                logWriter.close();
+                logWriter = null;
+            }
+        } catch (IOException e) {
+            recordLog("关闭日志文件失败: " + e.getMessage());
+        }
+
+        Toast.makeText(this, "日志记录已停止", Toast.LENGTH_SHORT).show();
+    }
+
+    private void createLogFile() throws IOException {
+        SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
+        String experimentId = prefs.getString("experiment_id", "default");
+
+        String directoryPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                + "/Sample/" + experimentId + "/MainActivityLog/";
+        File directory = new File(directoryPath);
+
+        if (!directory.exists()) {
+            if (!directory.mkdirs()) {
+                throw new IOException("创建目录失败: " + directoryPath);
+            }
+        }
+
+        String fileName = "MainSession_" + System.currentTimeMillis() + ".txt";
+        File logFile = new File(directory, fileName);
+        logWriter = new BufferedWriter(new FileWriter(logFile, true));
+
+        recordLog("日志文件创建: " + logFile.getAbsolutePath());
+    }
+
+    private void updateLogRecordingUI(boolean recording) {
+        if (startLogRecordingButton != null) {
+            startLogRecordingButton.setEnabled(!recording);
+            startLogRecordingButton.setText(recording ? "录制中..." : "开始记录");
+        }
+
+        if (stopLogRecordingButton != null) {
+            stopLogRecordingButton.setEnabled(recording);
+            stopLogRecordingButton.setBackgroundColor(recording ? Color.parseColor("#F44336") : Color.GRAY);
+        }
+    }
+
+    private void updateLogStatus(String status) {
+        if (logStatusText != null) {
+            logStatusText.setText("状态: " + status);
+        }
+    }
+
+    // ==================== 在线测量功能 ====================
+
     private void startOnlineMeasurement() {
         if (!isConnected || connectionStatus != 7) {
             Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
@@ -488,24 +930,17 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 return;
             }
 
-            // 开始测量
             isMeasuring = true;
             clearAllPlots();
 
-            // 设置测量时间到NotificationHandler
             NotificationHandler.setMeasurementTime(measurementTime);
-
-            // 更新UI状态
             updateMeasurementUI(true);
             updateMeasurementStatus("测量中... (0/" + measurementTime + "s)");
 
             recordLog("【开始在线测量】时间: " + measurementTime + "秒");
 
-            // 启动测量计时器
             startMeasurementTimer(measurementTime);
 
-            // 这里可以发送开始测量的指令到设备
-            // 使用NotificationHandler或直接发送自定义指令
             if (NotificationHandler.startActiveMeasurement()) {
                 Toast.makeText(this, "在线测量开始", Toast.LENGTH_SHORT).show();
             } else {
@@ -522,35 +957,27 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         if (isMeasuring) {
             isMeasuring = false;
 
-            // 停止测量计时器
             if (measurementTimer != null) {
                 measurementTimer.cancel();
                 measurementTimer = null;
             }
 
-            // 更新UI状态
             updateMeasurementUI(false);
             updateMeasurementStatus("测量已停止");
 
             recordLog("【停止在线测量】");
-
-            // 发送停止测量指令到设备
             NotificationHandler.stopMeasurement();
 
             Toast.makeText(this, "在线测量已停止", Toast.LENGTH_SHORT).show();
         }
     }
 
-    private java.util.Timer measurementTimer;
-    private int measurementElapsed = 0;
-    private int totalMeasurementTime = 0;
-
     private void startMeasurementTimer(int totalTime) {
         totalMeasurementTime = totalTime;
         measurementElapsed = 0;
 
-        measurementTimer = new java.util.Timer();
-        measurementTimer.scheduleAtFixedRate(new java.util.TimerTask() {
+        measurementTimer = new Timer();
+        measurementTimer.scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
                 measurementElapsed++;
@@ -560,9 +987,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 });
 
                 if (measurementElapsed >= totalMeasurementTime) {
-                    // 测量时间到，自动停止
                     mainHandler.post(() -> {
-                        stopOnlineMeasurement();
                         updateMeasurementStatus("测量完成");
                         Toast.makeText(MainActivity.this, "测量完成", Toast.LENGTH_SHORT).show();
                     });
@@ -580,8 +1005,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
         if (stopMeasurementButton != null) {
             stopMeasurementButton.setEnabled(measuring);
-            stopMeasurementButton.setBackgroundColor(measuring ?
-                    Color.parseColor("#F44336") : Color.GRAY);
+            stopMeasurementButton.setBackgroundColor(measuring ? Color.parseColor("#F44336") : Color.GRAY);
         }
     }
 
@@ -591,9 +1015,79 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
     }
 
-    // 按钮点击事件处理
+    // ==================== 离线录制功能 ====================
+
+    private void startOfflineRecording() {
+        if (!isConnected || connectionStatus != 7) {
+            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String totalDuration = totalDurationInput.getText().toString();
+        String segmentDuration = segmentDurationInput.getText().toString();
+
+        if (totalDuration.isEmpty() || segmentDuration.isEmpty()) {
+            Toast.makeText(this, "请输入持续时间值", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            int total = Integer.parseInt(totalDuration);
+            int segment = Integer.parseInt(segmentDuration);
+
+            if (total < 60 || total > 86400) {
+                Toast.makeText(this, "总时长应在60-86400秒之间", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (segment < 30 || segment > total) {
+                Toast.makeText(this, "片段时长应在30秒到总时长之间", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            isOfflineRecording = true;
+            startOfflineButton.setText("录制中...");
+            startOfflineButton.setBackgroundColor(Color.parseColor("#FF5722"));
+            startOfflineButton.setEnabled(false);
+
+            recordLog(String.format("【开始离线录制】总时长: %d秒, 片段: %d秒", total, segment));
+
+            // 启动离线录制逻辑
+            NotificationHandler.setExerciseParams(total, segment);
+            NotificationHandler.startExercise();
+
+            Toast.makeText(this, "离线录制开始", Toast.LENGTH_SHORT).show();
+
+            // 模拟录制完成
+            mainHandler.postDelayed(() -> {
+                isOfflineRecording = false;
+                startOfflineButton.setText("开始离线录制");
+                startOfflineButton.setBackgroundColor(Color.parseColor("#2196F3"));
+                startOfflineButton.setEnabled(true);
+                recordLog("【离线录制完成】");
+                Toast.makeText(this, "离线录制完成", Toast.LENGTH_SHORT).show();
+            }, total * 1000);
+
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, "请输入有效的数字", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // ==================== 基础功能 ====================
+
+    private void loadDeviceInfo() {
+        SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
+        macAddress = prefs.getString("mac_address", "");
+        deviceName = prefs.getString("device_name", "");
+
+        if (!macAddress.isEmpty()) {
+            macAddressText.setText("MAC: " + macAddress + " | Version: " + version);
+        } else {
+            macAddressText.setText("MAC: Not Selected | Version: --");
+        }
+    }
+
     private void scanForDevices() {
-        // 启动RingSettingsActivity
         Intent intent = new Intent(this, RingSettingsActivity.class);
         intent.putExtra("deviceName", "指环设备");
         startActivityForResult(intent, 100);
@@ -601,9 +1095,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     private void connectToDevice() {
         if (isConnected && connectionStatus == 7) {
-            // 如果已连接，执行断开操作
             recordLog("用户点击断开连接");
-            // 这里可以添加断开连接的逻辑
             updateConnectionStatus(false);
             connectionStatus = 0;
             Toast.makeText(this, "已断开连接", Toast.LENGTH_SHORT).show();
@@ -619,10 +1111,9 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
 
         recordLog("开始连接设备: " + savedMacAddress);
-        connectButton.setText("Connecting...");
+        connectButton.setText("连接中...");
         connectButton.setBackgroundColor(Color.parseColor("#FF9800"));
 
-        // 开始蓝牙连接
         try {
             android.bluetooth.BluetoothAdapter bluetoothAdapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter();
             android.bluetooth.BluetoothDevice device = bluetoothAdapter.getRemoteDevice(savedMacAddress);
@@ -631,16 +1122,57 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 macAddress = savedMacAddress;
             } else {
                 Toast.makeText(this, "无效的MAC地址", Toast.LENGTH_SHORT).show();
-                connectButton.setText("Connect");
+                connectButton.setText("连接");
                 connectButton.setBackgroundColor(Color.parseColor("#2196F3"));
             }
         } catch (Exception e) {
             recordLog("连接失败: " + e.getMessage());
             Toast.makeText(this, "连接失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            connectButton.setText("Connect");
+            connectButton.setText("连接");
             connectButton.setBackgroundColor(Color.parseColor("#2196F3"));
         }
     }
+
+    private void updateConnectionStatus(boolean connected) {
+        isConnected = connected;
+        if (connected && connectionStatus == 7) {
+            statusText.setText("已连接");
+            statusText.setTextColor(Color.WHITE);
+            statusIndicator.setText("✓ " + deviceName);
+            statusIndicator.setTextColor(Color.parseColor("#4CAF50"));
+            connectButton.setText("已连接");
+            connectButton.setBackgroundColor(Color.parseColor("#4CAF50"));
+            ringIdText.setText("Ring ID: " + deviceName);
+            macAddressText.setText("MAC: " + macAddress + " | Version: " + version);
+            batteryText.setText(batteryLevel + "%");
+        } else {
+            statusText.setText("未连接");
+            statusText.setTextColor(Color.parseColor("#FF5722"));
+            statusIndicator.setText("✗ 未连接");
+            statusIndicator.setTextColor(Color.parseColor("#FF5722"));
+            connectButton.setText("连接");
+            connectButton.setBackgroundColor(Color.parseColor("#2196F3"));
+            ringIdText.setText("Ring ID: --");
+            batteryText.setText("--");
+        }
+    }
+
+    private void clearAllPlots() {
+        if (plotViewG != null) plotViewG.clearPlot();
+        if (plotViewI != null) plotViewI.clearPlot();
+        if (plotViewR != null) plotViewR.clearPlot();
+        if (plotViewX != null) plotViewX.clearPlot();
+        if (plotViewY != null) plotViewY.clearPlot();
+        if (plotViewZ != null) plotViewZ.clearPlot();
+        if (plotViewGyroX != null) plotViewGyroX.clearPlot();
+        if (plotViewGyroY != null) plotViewGyroY.clearPlot();
+        if (plotViewGyroZ != null) plotViewGyroZ.clearPlot();
+        if (plotViewTemp0 != null) plotViewTemp0.clearPlot();
+        if (plotViewTemp1 != null) plotViewTemp1.clearPlot();
+        if (plotViewTemp2 != null) plotViewTemp2.clearPlot();
+    }
+
+    // ==================== 时间同步功能 ====================
 
     private void updateDeviceTime() {
         if (!isConnected || connectionStatus != 7) {
@@ -663,9 +1195,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             TimeZone timeZone = TimeZone.getDefault();
             int timezoneOffset = timeZone.getRawOffset() / (1000 * 60 * 60);
 
-            recordLog("主机当前时间: " + currentTime + " ms");
-            recordLog("当前时区偏移: UTC" + (timezoneOffset >= 0 ? "+" : "") + timezoneOffset);
-
             StringBuilder hexCommand = new StringBuilder();
             hexCommand.append(String.format("00%02X1000", timeUpdateFrameId));
 
@@ -682,16 +1211,14 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             byte[] data = hexStringToByteArray(hexCommand.toString());
             recordLog("发送时间更新命令: " + hexCommand.toString());
 
-            updateTimeButton.setText("Updating...");
+            updateTimeButton.setText("更新中...");
             updateTimeButton.setBackgroundColor(Color.parseColor("#FF9800"));
 
             LmAPI.CUSTOMIZE_CMD(data, customizeCmdListener);
 
         } catch (Exception e) {
             recordLog("发送时间更新命令失败: " + e.getMessage());
-            e.printStackTrace();
-
-            updateTimeButton.setText("Update Time");
+            updateTimeButton.setText("更新时间");
             updateTimeButton.setBackgroundColor(Color.parseColor("#2196F3"));
             isTimeUpdating = false;
         }
@@ -714,7 +1241,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             timeSyncFrameId = generateRandomFrameId();
 
             recordLog("【开始时间校准同步】使用自定义指令");
-            recordLog("主机发送时间: " + timeSyncRequestTime + " ms");
 
             StringBuilder hexCommand = new StringBuilder();
             hexCommand.append(String.format("00%02X1002", timeSyncFrameId));
@@ -727,7 +1253,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             byte[] data = hexStringToByteArray(hexCommand.toString());
             recordLog("发送时间校准命令: " + hexCommand.toString());
 
-            calibrateButton.setText("Calibrating...");
+            calibrateButton.setText("校准中...");
             calibrateButton.setBackgroundColor(Color.parseColor("#FF9800"));
             timeSyncRequestTime = timeSyncRequestTime / 1000;
 
@@ -735,101 +1261,14 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
         } catch (Exception e) {
             recordLog("发送时间校准命令失败: " + e.getMessage());
-            e.printStackTrace();
-
-            calibrateButton.setText("Calibrate");
+            calibrateButton.setText("校准");
             calibrateButton.setBackgroundColor(Color.parseColor("#4CAF50"));
             isTimeSyncing = false;
         }
     }
 
-    private void toggleRecording() {
-        if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
-            return;
-        }
+    // ==================== 自定义指令响应处理 ====================
 
-        isRecording = !isRecording;
-        if (isRecording) {
-            startRecordingButton.setText("Stop");
-            startRecordingButton.setBackgroundColor(Color.parseColor("#FF5722"));
-            Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show();
-        } else {
-            startRecordingButton.setText("Start");
-            startRecordingButton.setBackgroundColor(Color.parseColor("#4CAF50"));
-            Toast.makeText(this, "Recording stopped", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void resetData() {
-        clearAllPlots();
-
-        Toast.makeText(this, "Data reset", Toast.LENGTH_SHORT).show();
-    }
-
-    private void startOfflineRecording() {
-        if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        String totalDuration = totalDurationInput.getText().toString();
-        String segmentDuration = segmentDurationInput.getText().toString();
-
-        if (totalDuration.isEmpty() || segmentDuration.isEmpty()) {
-            Toast.makeText(this, "请输入持续时间值", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        isOfflineRecording = true;
-        startOfflineButton.setText("Recording...");
-        startOfflineButton.setBackgroundColor(Color.parseColor("#FF5722"));
-
-        Toast.makeText(this, "离线录制开始", Toast.LENGTH_SHORT).show();
-
-        // 模拟录制完成
-        mainHandler.postDelayed(() -> {
-            isOfflineRecording = false;
-            startOfflineButton.setText("Start Offline Recording");
-            startOfflineButton.setBackgroundColor(Color.parseColor("#2196F3"));
-            Toast.makeText(this, "离线录制完成", Toast.LENGTH_SHORT).show();
-        }, 5000);
-    }
-
-    private void getFileList() {
-        if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Toast.makeText(this, "获取文件列表中...", Toast.LENGTH_SHORT).show();
-        getFileListButton.setText("Getting...");
-
-        mainHandler.postDelayed(() -> {
-            getFileListButton.setText("Get File List");
-            setupFileList();
-            Toast.makeText(this, "文件列表已更新", Toast.LENGTH_SHORT).show();
-        }, 2000);
-    }
-
-    private void downloadSelectedFiles() {
-        if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Toast.makeText(this, "下载选中文件中...", Toast.LENGTH_SHORT).show();
-        downloadSelectedButton.setText("Downloading...");
-        downloadSelectedButton.setBackgroundColor(Color.parseColor("#FF9800"));
-
-        mainHandler.postDelayed(() -> {
-            downloadSelectedButton.setText("Download Selected (1)");
-            downloadSelectedButton.setBackgroundColor(Color.parseColor("#FF5722"));
-            Toast.makeText(this, "文件下载成功", Toast.LENGTH_SHORT).show();
-        }, 3000);
-    }
-
-    // 自定义指令响应处理
     private void handleCustomizeResponse(byte[] data) {
         try {
             if (data == null || data.length < 4) {
@@ -854,11 +1293,18 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                         recordLog("识别为时间校准响应");
                         handleTimeSyncResponse(data);
                     }
+                } else if (cmd == 0x36) {
+                    if (subcmd == 0x10) {
+                        recordLog("识别为文件列表响应");
+                        handleFileListResponse(data);
+                    } else if (subcmd == 0x11) {
+                        recordLog("识别为文件数据响应");
+                        handleFileDataResponse(data);
+                    }
                 }
             }
         } catch (Exception e) {
             recordLog("处理自定义指令响应失败: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
@@ -869,16 +1315,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 return;
             }
 
-            int frameType = data[0] & 0xFF;
             int frameId = data[1] & 0xFF;
-            int cmd = data[2] & 0xFF;
-            int subcmd = data[3] & 0xFF;
-
-            if (frameType != 0x00 || cmd != 0x10 || subcmd != 0x00) {
-                recordLog("时间更新响应格式错误");
-                return;
-            }
-
             if (frameId != timeUpdateFrameId) {
                 recordLog("时间更新响应Frame ID不匹配");
                 return;
@@ -887,17 +1324,15 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             recordLog("【时间更新完成】戒指时间已成功更新");
 
             mainHandler.post(() -> {
-                updateTimeButton.setText("Update Time");
+                updateTimeButton.setText("更新时间");
                 updateTimeButton.setBackgroundColor(Color.parseColor("#2196F3"));
                 Toast.makeText(this, "戒指时间更新成功", Toast.LENGTH_SHORT).show();
             });
 
         } catch (Exception e) {
             recordLog("解析时间更新响应失败: " + e.getMessage());
-            e.printStackTrace();
-
             mainHandler.post(() -> {
-                updateTimeButton.setText("Update Time");
+                updateTimeButton.setText("更新时间");
                 updateTimeButton.setBackgroundColor(Color.parseColor("#2196F3"));
             });
         } finally {
@@ -914,16 +1349,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 return;
             }
 
-            int frameType = data[0] & 0xFF;
             int frameId = data[1] & 0xFF;
-            int cmd = data[2] & 0xFF;
-            int subcmd = data[3] & 0xFF;
-
-            if (frameType != 0x00 || cmd != 0x10 || subcmd != 0x02) {
-                recordLog("时间校准响应格式错误");
-                return;
-            }
-
             if (frameId != timeSyncFrameId) {
                 recordLog("时间校准响应Frame ID不匹配");
                 return;
@@ -937,19 +1363,14 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             long ringUploadTime = readUInt64LE(data, offset) / 1000;
 
             long roundTripTime = currentTime - timeSyncRequestTime;
-            long oneWayDelay = roundTripTime / 2;
             long timeDifference = ringReceivedTime - hostSentTime;
 
             recordLog("【时间校准结果】");
-            recordLog(String.format("主机发送时间: %d ", hostSentTime));
-            recordLog(String.format("戒指接收时间: %d ", ringReceivedTime));
-            recordLog(String.format("戒指上传时间: %d ", ringUploadTime));
             recordLog(String.format("往返延迟: %d s", roundTripTime));
-            recordLog(String.format("单程延迟估计: %d s", oneWayDelay));
             recordLog(String.format("时间差: %d s", timeDifference));
 
             mainHandler.post(() -> {
-                calibrateButton.setText("Calibrate");
+                calibrateButton.setText("校准");
                 calibrateButton.setBackgroundColor(Color.parseColor("#4CAF50"));
                 Toast.makeText(this,
                         String.format("时间校准完成\n时间差: %d s\n延迟: %d s", timeDifference, roundTripTime),
@@ -958,10 +1379,8 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
         } catch (Exception e) {
             recordLog("解析时间校准响应失败: " + e.getMessage());
-            e.printStackTrace();
-
             mainHandler.post(() -> {
-                calibrateButton.setText("Calibrate");
+                calibrateButton.setText("校准");
                 calibrateButton.setBackgroundColor(Color.parseColor("#4CAF50"));
             });
         } finally {
@@ -969,22 +1388,38 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
     }
 
-    // 工具方法
-    private long readUInt64LE(byte[] data, int offset) {
-        if (offset + 8 > data.length) {
-            throw new IndexOutOfBoundsException("数据不足以读取8字节时间戳");
+    // ==================== 日志记录功能 ====================
+
+    private void recordLog(String message) {
+        String timestamp = getCurrentTimestamp();
+        String fullLogMessage = "[" + timestamp + "] " + message;
+
+        // 显示到UI
+        mainHandler.post(() -> {
+            if (logDisplayText != null) {
+                String currentText = logDisplayText.getText().toString();
+                if (currentText.equals("日志将显示在这里...")) {
+                    logDisplayText.setText(message);
+                } else {
+                    logDisplayText.setText(currentText + "\n" + message);
+                }
+            }
+        });
+
+        // 写入文件（仅在录制状态下）
+        if (isLogRecording && logWriter != null) {
+            try {
+                logWriter.write(fullLogMessage + "\n");
+                logWriter.flush();
+            } catch (IOException e) {
+                android.util.Log.e("MainActivity", "写入日志失败: " + e.getMessage());
+            }
         }
-        long result = 0;
-        for (int i = 0; i < 8; i++) {
-            result |= ((long)(data[offset + i] & 0xFF)) << (i * 8);
-        }
-        return result;
+
+        android.util.Log.d("MainActivity", fullLogMessage);
     }
 
-    private int generateRandomFrameId() {
-        Random random = new Random();
-        return random.nextInt(256);
-    }
+    // ==================== 工具方法 ====================
 
     public static byte[] hexStringToByteArray(String hexString) {
         int len = hexString.length();
@@ -1007,8 +1442,34 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         return sb.toString();
     }
 
-    private void recordLog(String message) {
-        android.util.Log.d("MainActivity", message);
+    private String getCurrentTimestamp() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault());
+        return sdf.format(new Date());
+    }
+
+    private int generateRandomFrameId() {
+        return random.nextInt(256);
+    }
+
+    private int readUInt32LE(byte[] data, int offset) {
+        if (offset + 4 > data.length) {
+            throw new IndexOutOfBoundsException("数据不足以读取4字节整型");
+        }
+        return (data[offset] & 0xFF) |
+                ((data[offset + 1] & 0xFF) << 8) |
+                ((data[offset + 2] & 0xFF) << 16) |
+                ((data[offset + 3] & 0xFF) << 24);
+    }
+
+    private long readUInt64LE(byte[] data, int offset) {
+        if (offset + 8 > data.length) {
+            throw new IndexOutOfBoundsException("数据不足以读取8字节时间戳");
+        }
+        long result = 0;
+        for (int i = 0; i < 8; i++) {
+            result |= ((long)(data[offset + i] & 0xFF)) << (i * 8);
+        }
+        return result;
     }
 
     @Override
@@ -1020,13 +1481,14 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
     }
 
-    // IResponseListener 接口实现
+    // ==================== IResponseListener 接口实现 ====================
+
     @Override
     public void lmBleConnecting(int i) {
         recordLog("蓝牙连接中，状态码：" + i);
         connectionStatus = i;
         mainHandler.post(() -> {
-            connectButton.setText("Connecting...");
+            connectButton.setText("连接中...");
             connectButton.setBackgroundColor(Color.parseColor("#FF9800"));
         });
     }
@@ -1063,7 +1525,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         recordLog("蓝牙连接失败，状态码：" + i);
         connectionStatus = i;
         mainHandler.post(() -> {
-            connectButton.setText("Connect");
+            connectButton.setText("连接");
             connectButton.setBackgroundColor(Color.parseColor("#2196F3"));
             Toast.makeText(this, "连接失败", Toast.LENGTH_SHORT).show();
         });
@@ -1298,12 +1760,27 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
+        // 清理资源
         if (mainHandler != null) {
             mainHandler.removeCallbacksAndMessages(null);
         }
+
         if (measurementTimer != null) {
             measurementTimer.cancel();
             measurementTimer = null;
         }
+
+        // 关闭日志文件
+        if (logWriter != null) {
+            try {
+                logWriter.close();
+                logWriter = null;
+            } catch (IOException e) {
+                android.util.Log.e("MainActivity", "关闭日志文件失败: " + e.getMessage());
+            }
+        }
+
+        recordLog("MainActivity销毁，资源已清理");
     }
 }
