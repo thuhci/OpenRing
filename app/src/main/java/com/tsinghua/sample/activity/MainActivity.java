@@ -56,9 +56,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private Button connectButton;
     private Button updateTimeButton;
     private Button calibrateButton;
-    private Button startRecordingButton;
-    private Button resetButton;
-    private Button startOfflineButton;
+
     private Button getFileListButton;
     private Button downloadSelectedButton;
     private EditText totalDurationInput;
@@ -572,7 +570,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             }
 
             mainHandler.post(() -> {
-                updateFileListUI();
+                setupFileList();
                 getFileListButton.setText("获取文件列表");
                 getFileListButton.setEnabled(true);
                 if (fileList.size() > 0) {
@@ -871,11 +869,9 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     }
 
     private void createLogFile() throws IOException {
-        SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
-        String experimentId = prefs.getString("experiment_id", "default");
 
         String directoryPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-                + "/Sample/" + experimentId + "/MainActivityLog/";
+                + "/Sample/" +  "/RingLog/";
         File directory = new File(directoryPath);
 
         if (!directory.exists()) {
@@ -1015,63 +1011,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
     }
 
-    // ==================== 离线录制功能 ====================
 
-    private void startOfflineRecording() {
-        if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        String totalDuration = totalDurationInput.getText().toString();
-        String segmentDuration = segmentDurationInput.getText().toString();
-
-        if (totalDuration.isEmpty() || segmentDuration.isEmpty()) {
-            Toast.makeText(this, "请输入持续时间值", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        try {
-            int total = Integer.parseInt(totalDuration);
-            int segment = Integer.parseInt(segmentDuration);
-
-            if (total < 60 || total > 86400) {
-                Toast.makeText(this, "总时长应在60-86400秒之间", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (segment < 30 || segment > total) {
-                Toast.makeText(this, "片段时长应在30秒到总时长之间", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            isOfflineRecording = true;
-            startOfflineButton.setText("录制中...");
-            startOfflineButton.setBackgroundColor(Color.parseColor("#FF5722"));
-            startOfflineButton.setEnabled(false);
-
-            recordLog(String.format("【开始离线录制】总时长: %d秒, 片段: %d秒", total, segment));
-
-            // 启动离线录制逻辑
-            NotificationHandler.setExerciseParams(total, segment);
-            NotificationHandler.startExercise();
-
-            Toast.makeText(this, "离线录制开始", Toast.LENGTH_SHORT).show();
-
-            // 模拟录制完成
-            mainHandler.postDelayed(() -> {
-                isOfflineRecording = false;
-                startOfflineButton.setText("开始离线录制");
-                startOfflineButton.setBackgroundColor(Color.parseColor("#2196F3"));
-                startOfflineButton.setEnabled(true);
-                recordLog("【离线录制完成】");
-                Toast.makeText(this, "离线录制完成", Toast.LENGTH_SHORT).show();
-            }, total * 1000);
-
-        } catch (NumberFormatException e) {
-            Toast.makeText(this, "请输入有效的数字", Toast.LENGTH_SHORT).show();
-        }
-    }
 
     // ==================== 基础功能 ====================
 
@@ -1397,12 +1337,8 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         // 显示到UI
         mainHandler.post(() -> {
             if (logDisplayText != null) {
-                String currentText = logDisplayText.getText().toString();
-                if (currentText.equals("日志将显示在这里...")) {
                     logDisplayText.setText(message);
-                } else {
-                    logDisplayText.setText(currentText + "\n" + message);
-                }
+
             }
         });
 
