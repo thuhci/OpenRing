@@ -1,12 +1,17 @@
 package com.tsinghua.openring.activity;
 
+import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Environment;
+import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -17,6 +22,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.lm.sdk.LmAPI;
@@ -113,6 +120,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private Button stopExerciseButton;
     private TextView exerciseStatusText;
     private boolean isExercising = false;
+    private static final int PERMISSION_REQUEST_CODE = 100;  // Permission request code
+
+    private static final int REQUEST_PERMISSION = 200;
+
     private ICustomizeCmdListener fileTransferCmdListener = new ICustomizeCmdListener() {
         @Override
         public void cmdData(String responseData) {
@@ -239,6 +250,27 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
         // Show Dashboard page
         showDashboard();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!checkPermissions(new String[]{
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                    Manifest.permission.BLUETOOTH_ADVERTISE
+            })) {
+                showPermissionDialog();
+                return;
+            }
+        } else {
+            if (!checkPermissions(new String[]{
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+            })) {
+                showPermissionDialog();
+                return;
+            }
+        }
+        checkPermissions();
     }
 
     private void initializeViews() {
@@ -492,6 +524,49 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     }
 
     // ==================== Page Switching ====================
+    private void checkPermissions(){
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                startActivity(intent);
+            }
+        }
+
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
+                ActivityCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE}, REQUEST_PERMISSION);
+        }
+    }
+    private void showPermissionDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Permission Request")
+                .setMessage("This app requires location and Bluetooth permissions. Please grant the permissions to continue using Bluetooth features.")
+                .setPositiveButton("OK", (dialog, which) -> {
+                    requestPermission(new String[]{
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                            Manifest.permission.BLUETOOTH_ADVERTISE
+                    }, PERMISSION_REQUEST_CODE);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+    private void requestPermission(String[] permissions, int requestCode) {
+        ActivityCompat.requestPermissions(this, permissions, requestCode);
+    }
+    private boolean checkPermissions(String[] permissions) {
+        for (String permission : permissions) {
+            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     private void showDashboard() {
         hideAllViews();

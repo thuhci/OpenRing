@@ -12,11 +12,6 @@ The project requires:
 ### Dependencies
 The following libraries are used in the OpenRing project and will be automatically downloaded when building:
 
-#### Core Android Libraries
-- `androidx.appcompat:appcompat:1.6.1`
-- `androidx.constraintlayout:constraintlayout:2.1.4`
-- `com.google.android.material:material:1.9.0`
-
 #### Bluetooth and Connectivity
 - `ChipletRing1.0.81.aar` - T-Ring SDK for device communication
 - Custom BLE utilities for ring connectivity
