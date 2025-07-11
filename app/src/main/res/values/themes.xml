@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- 自定义基础主题 -->
-    <style name="Base.Theme.Sample" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Base.Theme.OpenRing" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- 重写主题颜色 -->
         <item name="colorPrimary">@color/my_primary</item>
         <item name="colorPrimaryContainer">@color/my_primary_container</item>
@@ -12,5 +12,5 @@
         <item name="colorError">@color/my_error</item> <!-- 错误颜色 -->
     </style>
 
-    <style name="Theme.Sample" parent="Base.Theme.Sample" />
+    <style name="Theme.OpenRing" parent="Base.Theme.OpenRing" />
 </resources>

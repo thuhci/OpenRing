@@ -2,13 +2,13 @@ plugins {
     alias(libs.plugins.android.application)
 }
 android {
-    namespace 'com.tsinghua.sample'
+    namespace 'com.tsinghua.openring'
     compileSdk 34
     buildFeatures {
         buildConfig = true  // Disable BuildConfig generation
     }
     defaultConfig {
-        applicationId "com.tsinghua.sample"
+        applicationId "com.tsinghua.openring"
         minSdk 26
         targetSdk 34
         versionCode 1
@@ -51,15 +51,9 @@ dependencies {
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
     //local libraries
-    implementation 'com.arthenica:ffmpeg-kit-full:6.0-2'
 
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
-    implementation 'com.github.NaikSoftware:StompProtocolAndroid:1.6.6'
-    implementation 'com.licheedev:android-serialport:2.1.5'
-    implementation ("com.google.mediapipe:solution-core:latest.release")
-    implementation ("com.google.mediapipe:facemesh:latest.release")
-    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.21.0'
-    implementation 'org.opencv:opencv:4.9.0'
+
     implementation 'com.fasterxml.jackson.core:jackson-core:2.15.3'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.3'
     implementation 'com.fasterxml.jackson.core:jackson-annotations:2.15.3'

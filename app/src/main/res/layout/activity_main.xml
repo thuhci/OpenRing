@@ -382,12 +382,13 @@
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
                             android:orientation="horizontal">
 
                             <Button
                                 android:id="@+id/startMeasurementButton"
                                 android:layout_width="0dp"
-                                android:layout_height="wrap_content"
+                                android:layout_height="70dp"
                                 android:layout_weight="1"
                                 android:text="Start Measurement"
                                 android:textSize="14sp"
@@ -398,7 +399,7 @@
                             <Button
                                 android:id="@+id/stopMeasurementButton"
                                 android:layout_width="0dp"
-                                android:layout_height="wrap_content"
+                                android:layout_height="70dp"
                                 android:layout_weight="1"
                                 android:text="Stop"
                                 android:textSize="14sp"
@@ -450,7 +451,7 @@
                                 android:textColor="@color/green"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewG"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -474,7 +475,7 @@
                                 android:textColor="@color/orange"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewI"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -498,7 +499,7 @@
                                 android:textColor="@color/red"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewR"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -549,7 +550,7 @@
                                 android:textColor="@color/blue"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewX"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -573,7 +574,7 @@
                                 android:textColor="@color/purple"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewY"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -597,7 +598,7 @@
                                 android:textColor="@color/cyan"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewZ"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -648,7 +649,7 @@
                                 android:textColor="#FF6B6B"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewGyroX"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -672,7 +673,7 @@
                                 android:textColor="#4ECDC4"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewGyroY"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -696,7 +697,7 @@
                                 android:textColor="#45B7D1"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewGyroZ"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -747,7 +748,7 @@
                                 android:textColor="#FFA726"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewTemp0"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -771,7 +772,7 @@
                                 android:textColor="#FF7043"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewTemp1"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -795,7 +796,7 @@
                                 android:textColor="#FF5722"
                                 android:textStyle="bold" />
 
-                            <com.tsinghua.sample.PlotView
+                            <com.tsinghua.openring.PlotView
                                 android:id="@+id/plotViewTemp2"
                                 android:layout_width="0dp"
                                 android:layout_height="60dp"
@@ -914,7 +915,7 @@
                             android:id="@+id/exerciseStatusText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="运动状态: 就绪"
+                            android:text="Ready"
                             android:textSize="14sp"
                             android:textColor="@android:color/darker_gray"
                             android:layout_marginBottom="16dp" />
@@ -1001,7 +1002,15 @@
                             android:background="@drawable/button_green_bg"
                             android:textColor="@android:color/white"
                             android:layout_marginBottom="16dp" />
-
+                        <Button
+                            android:id="@+id/formatFileSystemButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:text="Format File System"
+                            android:textSize="14sp"
+                            android:background="@drawable/button_orange_bg"
+                            android:textColor="@android:color/white"
+                            android:layout_marginBottom="16dp" />
                         <!-- 文件列表容器 -->
                         <LinearLayout
                             android:id="@+id/fileListContainer"
@@ -1019,7 +1028,7 @@
                         <Button
                             android:id="@+id/downloadSelectedButton"
                             android:layout_width="match_parent"
-                            android:layout_height="48dp"
+                            android:layout_height="100dp"
                             android:text="Download Selected (0)"
                             android:textSize="14sp"
                             android:background="@drawable/button_orange_bg"
@@ -1097,7 +1106,7 @@
                             android:id="@+id/logStatusText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="状态: 就绪"
+                            android:text="Ready"
                             android:textSize="14sp"
                             android:textColor="@android:color/darker_gray"
                             android:layout_marginBottom="16dp" />
@@ -1110,9 +1119,9 @@
                             <Button
                                 android:id="@+id/startLogRecordingButton"
                                 android:layout_width="0dp"
-                                android:layout_height="wrap_content"
+                                android:layout_height="70dp"
                                 android:layout_weight="1"
-                                android:text="开始记录"
+                                android:text="Start Recording"
                                 android:textSize="14sp"
                                 android:background="@drawable/button_green_bg"
                                 android:textColor="@android:color/white"
@@ -1121,9 +1130,9 @@
                             <Button
                                 android:id="@+id/stopLogRecordingButton"
                                 android:layout_width="0dp"
-                                android:layout_height="wrap_content"
+                                android:layout_height="70dp"
                                 android:layout_weight="1"
-                                android:text="停止记录"
+                                android:text="Stop Recording"
                                 android:textSize="14sp"
                                 android:background="@drawable/button_gray_bg"
                                 android:textColor="@android:color/white"

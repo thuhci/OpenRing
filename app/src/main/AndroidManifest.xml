@@ -18,7 +18,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Sample"
+        android:theme="@style/Theme.OpenRing"
         tools:targetApi="31">
         <activity
             android:name=".activity.MainActivity"
@@ -31,9 +31,7 @@
 
         <activity android:name=".activity.RingSettingsActivity"/>
 
-        <activity
-            android:windowSoftInputMode="adjustResize"
-            android:name=".SettingsActivity" />
+
     </application>
     <uses-feature android:name="android.hardware.usb.host" />
     <uses-permission android:name="android.hardware.usb.permission" />

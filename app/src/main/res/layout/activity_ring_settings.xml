@@ -5,7 +5,7 @@
     android:orientation="vertical"
     android:background="#F5F5F5">
 
-    <!-- 标题栏 -->
+    <!-- Title Bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -18,7 +18,7 @@
             android:id="@+id/backButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="← 返回"
+            android:text="← Back"
             android:textColor="@android:color/white"
             android:background="@android:color/transparent"
             android:textSize="16sp" />
@@ -28,17 +28,15 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="指环设备设置"
+            android:text="Ring Device Settings"
             android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold"
             android:gravity="center" />
 
-
-
     </LinearLayout>
 
-    <!-- 当前选中设备信息 -->
+    <!-- Current Selected Device Info -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -50,7 +48,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="当前选中设备"
+            android:text="Currently Selected Device"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"
@@ -60,7 +58,7 @@
             android:id="@+id/selectedDeviceInfo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="选中设备: 无"
+            android:text="Selected Device: None"
             android:textSize="14sp"
             android:textColor="#666666"
             android:padding="8dp"
@@ -68,7 +66,7 @@
 
     </LinearLayout>
 
-    <!-- 扫描控制 -->
+    <!-- Scan Control -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -82,7 +80,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="设备扫描"
+            android:text="Device Scanning"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"
@@ -91,7 +89,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="点击下方按钮开始扫描附近的蓝牙设备"
+            android:text="Click the button below to start scanning for nearby Bluetooth devices"
             android:textSize="12sp"
             android:textColor="#666666"
             android:layout_marginBottom="12dp" />
@@ -100,14 +98,14 @@
             android:id="@+id/scanButton"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:text="开始扫描"
+            android:text="Start Scanning"
             android:textSize="16sp"
             android:background="#2196F3"
             android:textColor="@android:color/white" />
 
     </LinearLayout>
 
-    <!-- 设备列表 -->
+    <!-- Device List -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -130,7 +128,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="发现的设备"
+                android:text="Discovered Devices"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@android:color/black" />
@@ -139,7 +137,7 @@
                 android:id="@+id/deviceCountText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="0个设备"
+                android:text="0 devices"
                 android:textSize="12sp"
                 android:textColor="#666666"
                 android:background="#E3F2FD"
@@ -153,7 +151,7 @@
             android:background="#CCCCCC"
             android:layout_marginBottom="12dp" />
 
-        <!-- 设备列表容器 -->
+        <!-- Device List Container -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -166,7 +164,7 @@
                 android:scrollbars="vertical"
                 android:visibility="gone" />
 
-            <!-- 空状态提示 -->
+            <!-- Empty State Hint -->
             <LinearLayout
                 android:id="@+id/emptyStateLayout"
                 android:layout_width="match_parent"
@@ -175,12 +173,10 @@
                 android:gravity="center"
                 android:visibility="visible">
 
-
-
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="暂无发现设备"
+                    android:text="No devices found"
                     android:textSize="14sp"
                     android:textColor="#666666"
                     android:layout_marginBottom="4dp" />
@@ -188,7 +184,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="请点击上方扫描按钮开始搜索"
+                    android:text="Please click the scan button above to start searching"
                     android:textSize="12sp"
                     android:textColor="#666666" />
 
@@ -198,7 +194,7 @@
 
     </LinearLayout>
 
-    <!-- 帮助信息 -->
+    <!-- Help Information -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -212,7 +208,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="💡 使用说明"
+            android:text="💡 Instructions"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"
@@ -221,7 +217,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="1. 确保蓝牙已开启\n2. 点击扫描按钮搜索设备\n3. 从列表中选择您的设备\n4. 返回主界面进行连接"
+            android:text="1. Make sure Bluetooth is enabled\n2. Click the scan button to search for devices\n3. Select your device from the list\n4. Return to the main screen to connect"
             android:textSize="14sp"
             android:textColor="#666666"
             android:lineSpacingExtra="4dp" />
