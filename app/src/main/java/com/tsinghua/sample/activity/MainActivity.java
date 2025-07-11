@@ -45,7 +45,7 @@ import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity implements IResponseListener {
 
-    // UI组件
+    // UI Components
     private TextView statusText;
     private TextView ringIdText;
     private TextView macAddressText;
@@ -65,29 +65,29 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private LinearLayout fileListContainer;
     private BottomNavigationView bottomNavigation;
 
-    // 状态变量
+    // Status Variables
     private boolean isConnected = false;
     private boolean isRecording = false;
     private boolean isOfflineRecording = false;
-    private int connectionStatus = 0; // 蓝牙连接状态
+    private int connectionStatus = 0; // Bluetooth connection status
     private int currentTab = 0; // 0: Dashboard, 1: Online, 2: Offline, 3: Logs
     private Handler mainHandler;
     private Random random = new Random();
 
-    // 设备信息
+    // Device Information
     private String deviceName = "";
     private String macAddress = "";
     private String version = "";
     private int batteryLevel = 0;
 
-    // 时间同步相关
+    // Time Sync Related
     private boolean isTimeUpdating = false;
     private boolean isTimeSyncing = false;
     private int timeUpdateFrameId = 0;
     private int timeSyncFrameId = 0;
     private long timeSyncRequestTime = 0;
 
-    // 在线测量相关
+    // Online Measurement Related
     private EditText measurementTimeInput;
     private Button startMeasurementButton;
     private Button stopMeasurementButton;
@@ -98,13 +98,13 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private PlotView plotViewTemp0, plotViewTemp1, plotViewTemp2;
     private boolean isMeasuring = false;
 
-    // 文件操作相关
+    // File Operation Related
     private List<FileInfo> fileList = new ArrayList<>();
     private List<FileInfo> selectedFiles = new ArrayList<>();
     private boolean isDownloadingFiles = false;
     private int currentDownloadIndex = 0;
 
-    // 运动控制相关
+    // Exercise Control Related
     private EditText exerciseTotalDurationInput;
     private EditText exerciseSegmentDurationInput;
     private Button startExerciseButton;
@@ -112,7 +112,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private TextView exerciseStatusText;
     private boolean isExercising = false;
 
-    // 日志记录相关
+    // Log Recording Related
     private Button startLogRecordingButton;
     private Button stopLogRecordingButton;
     private TextView logStatusText;
@@ -120,12 +120,12 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private BufferedWriter logWriter;
     private boolean isLogRecording = false;
 
-    // 测量相关
+    // Measurement Related
     private Timer measurementTimer;
     private int measurementElapsed = 0;
     private int totalMeasurementTime = 0;
 
-    // 文件信息类
+    // File Information Class
     public static class FileInfo {
         public String fileName;
         public int fileSize;
@@ -151,15 +151,15 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
         public String getFileTypeDescription() {
             switch (fileType) {
-                case 1: return "三轴数据";
-                case 2: return "六轴数据";
-                case 3: return "PPG数据红外+红色+三轴(spo2)";
-                case 4: return "PPG数据绿色";
-                case 5: return "PPG数据红外";
-                case 6: return "温度数据红外";
-                case 7: return "红外+红色+绿色+温度+三轴";
-                case 8: return "PPG数据绿色+三轴(hr)";
-                default: return "未知类型";
+                case 1: return "3-Axis Data";
+                case 2: return "6-Axis Data";
+                case 3: return "PPG IR+Red+3-Axis (SpO2)";
+                case 4: return "PPG Green";
+                case 5: return "PPG IR";
+                case 6: return "Temperature IR";
+                case 7: return "IR+Red+Green+Temp+3-Axis";
+                case 8: return "PPG Green+3-Axis (HR)";
+                default: return "Unknown Type";
             }
         }
 
@@ -200,12 +200,12 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
     }
 
-    // 自定义指令监听器
+    // Custom Command Listener
     private ICustomizeCmdListener customizeCmdListener = new ICustomizeCmdListener() {
         @Override
         public void cmdData(String responseData) {
             byte[] responseBytes = hexStringToByteArray(responseData);
-            recordLog("收到自定义指令响应: " + responseData);
+            recordLog("Received custom command response: " + responseData);
             handleCustomizeResponse(responseBytes);
         }
     };
@@ -217,7 +217,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
         mainHandler = new Handler(Looper.getMainLooper());
 
-        // 初始化SDK
+        // Initialize SDK
         LmAPI.init(getApplication());
         LmAPI.setDebug(true);
         LmAPI.addWLSCmdListener(this, this);
@@ -228,12 +228,12 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         setupNotificationHandler();
         loadDeviceInfo();
 
-        // 显示Dashboard页面
+        // Show Dashboard page
         showDashboard();
     }
 
     private void initializeViews() {
-        // 状态显示
+        // Status display
         statusText = findViewById(R.id.statusText);
         ringIdText = findViewById(R.id.ringIdText);
         macAddressText = findViewById(R.id.macAddressText);
@@ -241,7 +241,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         batteryText = findViewById(R.id.batteryText);
         connectionIcon = findViewById(R.id.connectionIcon);
 
-        // 按钮
+        // Buttons
         scanButton = findViewById(R.id.scanButton);
         connectButton = findViewById(R.id.connectButton);
         updateTimeButton = findViewById(R.id.updateTimeButton);
@@ -249,31 +249,31 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         getFileListButton = findViewById(R.id.getFileListButton);
         downloadSelectedButton = findViewById(R.id.downloadSelectedButton);
 
-        // 输入框
-        // 文件列表
+        // Input fields
+        // File list
         fileListStatus = findViewById(R.id.fileListStatus);
         fileListContainer = findViewById(R.id.fileListContainer);
 
-        // 在线测量相关
+        // Online measurement related
         measurementTimeInput = findViewById(R.id.measurementTimeInput);
         startMeasurementButton = findViewById(R.id.startMeasurementButton);
         stopMeasurementButton = findViewById(R.id.stopMeasurementButton);
         measurementStatusText = findViewById(R.id.measurementStatusText);
 
-        // 运动控制相关
+        // Exercise control related
         exerciseTotalDurationInput = findViewById(R.id.exerciseTotalDurationInput);
         exerciseSegmentDurationInput = findViewById(R.id.exerciseSegmentDurationInput);
         startExerciseButton = findViewById(R.id.startExerciseButton);
         stopExerciseButton = findViewById(R.id.stopExerciseButton);
         exerciseStatusText = findViewById(R.id.exerciseStatusText);
 
-        // 日志记录相关
+        // Log recording related
         startLogRecordingButton = findViewById(R.id.startLogRecordingButton);
         stopLogRecordingButton = findViewById(R.id.stopLogRecordingButton);
         logStatusText = findViewById(R.id.logStatusText);
         logDisplayText = findViewById(R.id.logDisplayText);
 
-        // 初始化PlotView
+        // Initialize PlotView
         plotViewG = findViewById(R.id.plotViewG);
         plotViewI = findViewById(R.id.plotViewI);
         plotViewR = findViewById(R.id.plotViewR);
@@ -287,16 +287,16 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         plotViewTemp1 = findViewById(R.id.plotViewTemp1);
         plotViewTemp2 = findViewById(R.id.plotViewTemp2);
 
-        // 设置PlotView颜色
+        // Set PlotView colors
         setupPlotViewColors();
 
-        // 底部导航
+        // Bottom navigation
         bottomNavigation = findViewById(R.id.bottomNavigation);
 
-        // 设置默认值
+        // Set default values
         setDefaultValues();
 
-        // 初始化状态
+        // Initialize status
         updateConnectionStatus(false);
         updateMeasurementUI(false);
         updateExerciseUI(false);
@@ -325,12 +325,12 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         if (measurementTimeInput != null) measurementTimeInput.setText("30");
         if (exerciseTotalDurationInput != null) exerciseTotalDurationInput.setText("300");
         if (exerciseSegmentDurationInput != null) exerciseSegmentDurationInput.setText("60");
-        if (logStatusText != null) logStatusText.setText("状态: 就绪");
-        if (logDisplayText != null) logDisplayText.setText("日志将显示在这里...");
+        if (logStatusText != null) logStatusText.setText("Status: Ready");
+        if (logDisplayText != null) logDisplayText.setText("Logs will be displayed here...");
     }
 
     private void setupNotificationHandler() {
-        // 连接NotificationHandler的PlotView
+        // Connect NotificationHandler's PlotView
         NotificationHandler.setPlotViewG(plotViewG);
         NotificationHandler.setPlotViewI(plotViewI);
         NotificationHandler.setPlotViewR(plotViewR);
@@ -344,52 +344,52 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         NotificationHandler.setPlotViewTemp1(plotViewTemp1);
         NotificationHandler.setPlotViewTemp2(plotViewTemp2);
 
-        // 设置设备指令回调
+        // Set device command callback
         NotificationHandler.setDeviceCommandCallback(new NotificationHandler.DeviceCommandCallback() {
             @Override
             public void sendCommand(byte[] commandData) {
                 LmAPI.CUSTOMIZE_CMD(commandData, customizeCmdListener);
-                recordLog("发送设备指令: " + bytesToHexString(commandData));
+                recordLog("Send device command: " + bytesToHexString(commandData));
             }
 
             @Override
             public void onMeasurementStarted() {
-                recordLog("【测量开始】");
+                recordLog("[Measurement Started]");
                 mainHandler.post(() -> {
                     updateMeasurementUI(true);
-                    updateMeasurementStatus("测量中...");
+                    updateMeasurementStatus("Measuring...");
                 });
             }
 
             @Override
             public void onMeasurementStopped() {
-                recordLog("【测量停止】");
+                recordLog("[Measurement Stopped]");
                 mainHandler.post(() -> {
                     updateMeasurementUI(false);
-                    updateMeasurementStatus("已停止");
+                    updateMeasurementStatus("Stopped");
                 });
             }
 
             @Override
             public void onExerciseStarted(int duration, int segmentTime) {
-                recordLog(String.format("【运动开始】总时长: %d秒, 片段: %d秒", duration, segmentTime));
+                recordLog(String.format("[Exercise Started] Total: %d sec, Segment: %d sec", duration, segmentTime));
                 mainHandler.post(() -> {
                     updateExerciseUI(true);
-                    updateExerciseStatus("运动中...");
+                    updateExerciseStatus("Exercising...");
                 });
             }
 
             @Override
             public void onExerciseStopped() {
-                recordLog("【运动停止】");
+                recordLog("[Exercise Stopped]");
                 mainHandler.post(() -> {
                     updateExerciseUI(false);
-                    updateExerciseStatus("已停止");
+                    updateExerciseStatus("Stopped");
                 });
             }
         });
 
-        // 设置文件操作回调
+        // Set file operation callback
         NotificationHandler.setFileResponseCallback(new NotificationHandler.FileResponseCallback() {
             @Override
             public void onFileListReceived(byte[] data) {
@@ -402,7 +402,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             }
         });
 
-        // 设置时间同步回调
+        // Set time sync callback
         NotificationHandler.setTimeSyncCallback(new NotificationHandler.TimeSyncCallback() {
             @Override
             public void onTimeSyncResponse(byte[] data) {
@@ -415,7 +415,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             }
         });
 
-        // 设置日志记录器
+        // Set log recorder
         NotificationHandler.setLogRecorder(new NotificationHandler.LogRecorder() {
             @Override
             public void recordLog(String message) {
@@ -456,7 +456,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         getFileListButton.setOnClickListener(v -> getFileList());
         downloadSelectedButton.setOnClickListener(v -> downloadSelectedFiles());
 
-        // 在线测量按钮
+        // Online measurement buttons
         if (startMeasurementButton != null) {
             startMeasurementButton.setOnClickListener(v -> startOnlineMeasurement());
         }
@@ -464,7 +464,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             stopMeasurementButton.setOnClickListener(v -> stopOnlineMeasurement());
         }
 
-        // 运动控制按钮
+        // Exercise control buttons
         if (startExerciseButton != null) {
             startExerciseButton.setOnClickListener(v -> startExercise());
         }
@@ -472,7 +472,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             stopExerciseButton.setOnClickListener(v -> stopExercise());
         }
 
-        // 日志记录按钮
+        // Log recording buttons
         if (startLogRecordingButton != null) {
             startLogRecordingButton.setOnClickListener(v -> startLogRecording());
         }
@@ -481,7 +481,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
     }
 
-    // ==================== 页面切换 ====================
+    // ==================== Page Switching ====================
 
     private void showDashboard() {
         hideAllViews();
@@ -511,19 +511,19 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         findViewById(R.id.logsLayout).setVisibility(View.GONE);
     }
 
-    // ==================== 文件操作功能 ====================
+    // ==================== File Operations ====================
 
     private void getFileList() {
         if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Device not connected", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        recordLog("【请求文件列表】使用自定义指令");
+        recordLog("[Request File List] Using custom command");
         try {
             String hexCommand = String.format("00%02X3610", generateRandomFrameId());
             byte[] data = hexStringToByteArray(hexCommand);
-            recordLog("发送文件列表命令: " + hexCommand);
+            recordLog("Send file list command: " + hexCommand);
             LmAPI.CUSTOMIZE_CMD(data, customizeCmdListener);
 
             fileList.clear();
@@ -531,20 +531,20 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             updateFileListUI();
 
             mainHandler.post(() -> {
-                getFileListButton.setText("获取中...");
+                getFileListButton.setText("Getting...");
                 getFileListButton.setEnabled(false);
             });
 
         } catch (Exception e) {
-            recordLog("发送文件列表请求失败: " + e.getMessage());
-            Toast.makeText(this, "获取文件列表失败", Toast.LENGTH_SHORT).show();
+            recordLog("Failed to send file list request: " + e.getMessage());
+            Toast.makeText(this, "Failed to get file list", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void handleFileListResponse(byte[] data) {
         try {
             if (data == null || data.length < 12) {
-                recordLog("文件列表响应数据长度不足");
+                recordLog("File list response data length insufficient");
                 return;
             }
 
@@ -552,10 +552,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             int seqNum = readUInt32LE(data, 8);
             int fileSize = readUInt32LE(data, 12);
 
-            recordLog(String.format("文件列表信息 - 总数: %d, 序号: %d, 大小: %d", totalFiles, seqNum, fileSize));
+            recordLog(String.format("File list info - Total: %d, Seq: %d, Size: %d", totalFiles, seqNum, fileSize));
 
             if (totalFiles > 0 && data.length > 16) {
-                // 解析文件名
+                // Parse filename
                 byte[] fileNameBytes = new byte[data.length - 16];
                 System.arraycopy(data, 16, fileNameBytes, 0, fileNameBytes.length);
 
@@ -565,47 +565,47 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 if (!fileName.isEmpty()) {
                     FileInfo fileInfo = new FileInfo(fileName, fileSize);
                     fileList.add(fileInfo);
-                    recordLog("添加文件: " + fileName + " (" + fileInfo.getFormattedSize() + ")");
+                    recordLog("Add file: " + fileName + " (" + fileInfo.getFormattedSize() + ")");
                 }
             }
 
             mainHandler.post(() -> {
                 setupFileList();
-                getFileListButton.setText("获取文件列表");
+                getFileListButton.setText("Get File List");
                 getFileListButton.setEnabled(true);
                 if (fileList.size() > 0) {
-                    Toast.makeText(this, "获取到 " + fileList.size() + " 个文件", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Got " + fileList.size() + " files", Toast.LENGTH_SHORT).show();
                 }
             });
 
         } catch (Exception e) {
-            recordLog("解析文件列表失败: " + e.getMessage());
+            recordLog("Failed to parse file list: " + e.getMessage());
             mainHandler.post(() -> {
-                getFileListButton.setText("获取文件列表");
+                getFileListButton.setText("Get File List");
                 getFileListButton.setEnabled(true);
             });
         }
     }
 
     private void handleFileDataResponse(byte[] data) {
-        recordLog("收到文件数据响应，长度: " + data.length);
-        // 这里可以处理文件数据的保存逻辑
+        recordLog("Received file data response, length: " + data.length);
+        // File data saving logic can be handled here
     }
 
     private void downloadSelectedFiles() {
         if (selectedFiles.isEmpty()) {
-            Toast.makeText(this, "请先选择要下载的文件", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please select files to download first", Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Device not connected", Toast.LENGTH_SHORT).show();
             return;
         }
 
         isDownloadingFiles = true;
         currentDownloadIndex = 0;
-        recordLog(String.format("【开始批量下载】选中文件数: %d", selectedFiles.size()));
+        recordLog(String.format("[Start Batch Download] Selected files: %d", selectedFiles.size()));
 
         downloadNextSelectedFile();
     }
@@ -614,15 +614,15 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         if (currentDownloadIndex >= selectedFiles.size()) {
             isDownloadingFiles = false;
             mainHandler.post(() -> {
-                downloadSelectedButton.setText("下载选中 (" + selectedFiles.size() + ")");
+                downloadSelectedButton.setText("Download Selected (" + selectedFiles.size() + ")");
                 downloadSelectedButton.setEnabled(true);
-                Toast.makeText(this, "所有文件下载完成", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "All files downloaded", Toast.LENGTH_SHORT).show();
             });
             return;
         }
 
         FileInfo fileInfo = selectedFiles.get(currentDownloadIndex);
-        recordLog(String.format("下载进度 %d/%d: %s", currentDownloadIndex + 1, selectedFiles.size(), fileInfo.fileName));
+        recordLog(String.format("Download progress %d/%d: %s", currentDownloadIndex + 1, selectedFiles.size(), fileInfo.fileName));
 
         try {
             byte[] fileNameBytes = fileInfo.fileName.getBytes("UTF-8");
@@ -639,7 +639,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             mainHandler.postDelayed(this::downloadNextSelectedFile, 2000);
 
         } catch (Exception e) {
-            recordLog("下载文件失败: " + e.getMessage());
+            recordLog("Download file failed: " + e.getMessage());
             currentDownloadIndex++;
             mainHandler.postDelayed(this::downloadNextSelectedFile, 1000);
         }
@@ -711,22 +711,22 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     private void updateFileListUI() {
         mainHandler.post(() -> {
-            fileListStatus.setText(String.format("共%d个文件，已选%d个", fileList.size(), selectedFiles.size()));
-            downloadSelectedButton.setText("下载选中 (" + selectedFiles.size() + ")");
+            fileListStatus.setText(String.format("Total %d files, %d selected", fileList.size(), selectedFiles.size()));
+            downloadSelectedButton.setText("Download Selected (" + selectedFiles.size() + ")");
             downloadSelectedButton.setEnabled(selectedFiles.size() > 0 && !isDownloadingFiles);
         });
     }
 
-    // ==================== 运动控制功能 ====================
+    // ==================== Exercise Control ====================
 
     private void startExercise() {
         if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Device not connected", Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (isExercising) {
-            Toast.makeText(this, "运动正在进行中", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Exercise is already in progress", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -735,7 +735,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             String segmentDurationStr = exerciseSegmentDurationInput.getText().toString().trim();
 
             if (totalDurationStr.isEmpty() || segmentDurationStr.isEmpty()) {
-                Toast.makeText(this, "请输入运动时长和片段时长", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Please enter exercise duration and segment duration", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -743,12 +743,12 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             int segmentDuration = Integer.parseInt(segmentDurationStr);
 
             if (totalDuration < 60 || totalDuration > 86400) {
-                Toast.makeText(this, "运动总时长应在60-86400秒之间", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Total exercise duration should be between 60-86400 seconds", Toast.LENGTH_SHORT).show();
                 return;
             }
 
             if (segmentDuration < 30 || segmentDuration > totalDuration) {
-                Toast.makeText(this, "片段时长应在30秒到总时长之间", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Segment duration should be between 30 seconds and total duration", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -757,25 +757,25 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
             if (success) {
                 isExercising = true;
-                recordLog(String.format("【开始运动】总时长: %d秒, 片段: %d秒", totalDuration, segmentDuration));
+                recordLog(String.format("[Start Exercise] Total: %d sec, Segment: %d sec", totalDuration, segmentDuration));
                 updateExerciseUI(true);
-                updateExerciseStatus(String.format("运动中 - 总时长: %d分钟, 片段: %d分钟", totalDuration/60, segmentDuration/60));
-                Toast.makeText(this, "运动开始", Toast.LENGTH_SHORT).show();
+                updateExerciseStatus(String.format("Exercising - Total: %d min, Segment: %d min", totalDuration/60, segmentDuration/60));
+                Toast.makeText(this, "Exercise started", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "开始运动失败", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Failed to start exercise", Toast.LENGTH_SHORT).show();
             }
 
         } catch (NumberFormatException e) {
-            Toast.makeText(this, "请输入有效的数字", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please enter valid numbers", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            recordLog("开始运动失败: " + e.getMessage());
-            Toast.makeText(this, "开始运动失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            recordLog("Failed to start exercise: " + e.getMessage());
+            Toast.makeText(this, "Failed to start exercise: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
     private void stopExercise() {
         if (!isExercising) {
-            Toast.makeText(this, "当前没有正在进行的运动", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No exercise currently in progress", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -783,23 +783,23 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             boolean success = NotificationHandler.stopExercise();
             if (success) {
                 isExercising = false;
-                recordLog("【结束运动】用户手动停止");
+                recordLog("[End Exercise] User manually stopped");
                 updateExerciseUI(false);
-                updateExerciseStatus("已停止");
-                Toast.makeText(this, "运动已停止", Toast.LENGTH_SHORT).show();
+                updateExerciseStatus("Stopped");
+                Toast.makeText(this, "Exercise stopped", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "停止运动失败", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Failed to stop exercise", Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
-            recordLog("停止运动失败: " + e.getMessage());
-            Toast.makeText(this, "停止运动失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            recordLog("Failed to stop exercise: " + e.getMessage());
+            Toast.makeText(this, "Failed to stop exercise: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
     private void updateExerciseUI(boolean exercising) {
         if (startExerciseButton != null) {
             startExerciseButton.setEnabled(!exercising);
-            startExerciseButton.setText(exercising ? "运动中..." : "开始运动");
+            startExerciseButton.setText(exercising ? "Exercising..." : "Start Exercise");
         }
 
         if (stopExerciseButton != null) {
@@ -810,15 +810,15 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     private void updateExerciseStatus(String status) {
         if (exerciseStatusText != null) {
-            exerciseStatusText.setText("运动状态: " + status);
+            exerciseStatusText.setText("Exercise Status: " + status);
         }
     }
 
-    // ==================== 日志记录功能 ====================
+    // ==================== Log Recording ====================
 
     private void startLogRecording() {
         if (isLogRecording) {
-            Toast.makeText(this, "日志记录正在进行中", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Log recording is already in progress", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -827,34 +827,34 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             isLogRecording = true;
 
             recordLog("=".repeat(50));
-            recordLog("【开始日志记录会话】时间: " + getCurrentTimestamp());
-            recordLog("设备: " + deviceName);
+            recordLog("[Start Log Recording Session] Time: " + getCurrentTimestamp());
+            recordLog("Device: " + deviceName);
             recordLog("MAC: " + macAddress);
             recordLog("=".repeat(50));
 
             updateLogRecordingUI(true);
-            updateLogStatus("录制中...");
-            Toast.makeText(this, "日志记录开始", Toast.LENGTH_SHORT).show();
+            updateLogStatus("Recording...");
+            Toast.makeText(this, "Log recording started", Toast.LENGTH_SHORT).show();
 
         } catch (IOException e) {
-            recordLog("创建日志文件失败: " + e.getMessage());
-            Toast.makeText(this, "创建日志文件失败", Toast.LENGTH_SHORT).show();
+            recordLog("Failed to create log file: " + e.getMessage());
+            Toast.makeText(this, "Failed to create log file", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void stopLogRecording() {
         if (!isLogRecording) {
-            Toast.makeText(this, "当前没有正在进行的日志记录", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No log recording currently in progress", Toast.LENGTH_SHORT).show();
             return;
         }
 
         recordLog("=".repeat(50));
-        recordLog("【结束日志记录会话】时间: " + getCurrentTimestamp());
+        recordLog("[End Log Recording Session] Time: " + getCurrentTimestamp());
         recordLog("=".repeat(50));
 
         isLogRecording = false;
         updateLogRecordingUI(false);
-        updateLogStatus("就绪");
+        updateLogStatus("Ready");
 
         try {
             if (logWriter != null) {
@@ -862,10 +862,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 logWriter = null;
             }
         } catch (IOException e) {
-            recordLog("关闭日志文件失败: " + e.getMessage());
+            recordLog("Failed to close log file: " + e.getMessage());
         }
 
-        Toast.makeText(this, "日志记录已停止", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Log recording stopped", Toast.LENGTH_SHORT).show();
     }
 
     private void createLogFile() throws IOException {
@@ -876,7 +876,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
         if (!directory.exists()) {
             if (!directory.mkdirs()) {
-                throw new IOException("创建目录失败: " + directoryPath);
+                throw new IOException("Failed to create directory: " + directoryPath);
             }
         }
 
@@ -884,13 +884,13 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         File logFile = new File(directory, fileName);
         logWriter = new BufferedWriter(new FileWriter(logFile, true));
 
-        recordLog("日志文件创建: " + logFile.getAbsolutePath());
+        recordLog("Log file created: " + logFile.getAbsolutePath());
     }
 
     private void updateLogRecordingUI(boolean recording) {
         if (startLogRecordingButton != null) {
             startLogRecordingButton.setEnabled(!recording);
-            startLogRecordingButton.setText(recording ? "录制中..." : "开始记录");
+            startLogRecordingButton.setText(recording ? "Recording..." : "Start Recording");
         }
 
         if (stopLogRecordingButton != null) {
@@ -901,28 +901,28 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     private void updateLogStatus(String status) {
         if (logStatusText != null) {
-            logStatusText.setText("状态: " + status);
+            logStatusText.setText("Status: " + status);
         }
     }
 
-    // ==================== 在线测量功能 ====================
+    // ==================== Online Measurement ====================
 
     private void startOnlineMeasurement() {
         if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Device not connected", Toast.LENGTH_SHORT).show();
             return;
         }
 
         String timeStr = measurementTimeInput.getText().toString().trim();
         if (timeStr.isEmpty()) {
-            Toast.makeText(this, "请输入测量时间", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please enter measurement time", Toast.LENGTH_SHORT).show();
             return;
         }
 
         try {
             int measurementTime = Integer.parseInt(timeStr);
             if (measurementTime < 1 || measurementTime > 3600) {
-                Toast.makeText(this, "测量时间应在1-3600秒之间", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Measurement time should be between 1-3600 seconds", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -931,21 +931,21 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
             NotificationHandler.setMeasurementTime(measurementTime);
             updateMeasurementUI(true);
-            updateMeasurementStatus("测量中... (0/" + measurementTime + "s)");
+            updateMeasurementStatus("Measuring... (0/" + measurementTime + "s)");
 
-            recordLog("【开始在线测量】时间: " + measurementTime + "秒");
+            recordLog("[Start Online Measurement] Time: " + measurementTime + " seconds");
 
             startMeasurementTimer(measurementTime);
 
             if (NotificationHandler.startActiveMeasurement()) {
-                Toast.makeText(this, "在线测量开始", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Online measurement started", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "启动测量失败", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Failed to start measurement", Toast.LENGTH_SHORT).show();
                 stopOnlineMeasurement();
             }
 
         } catch (NumberFormatException e) {
-            Toast.makeText(this, "请输入有效的测量时间", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please enter valid measurement time", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -959,12 +959,12 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             }
 
             updateMeasurementUI(false);
-            updateMeasurementStatus("测量已停止");
+            updateMeasurementStatus("Measurement stopped");
 
-            recordLog("【停止在线测量】");
+            recordLog("[Stop Online Measurement]");
             NotificationHandler.stopMeasurement();
 
-            Toast.makeText(this, "在线测量已停止", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Online measurement stopped", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -979,13 +979,13 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 measurementElapsed++;
 
                 mainHandler.post(() -> {
-                    updateMeasurementStatus("测量中... (" + measurementElapsed + "/" + totalMeasurementTime + "s)");
+                    updateMeasurementStatus("Measuring... (" + measurementElapsed + "/" + totalMeasurementTime + "s)");
                 });
 
                 if (measurementElapsed >= totalMeasurementTime) {
                     mainHandler.post(() -> {
-                        updateMeasurementStatus("测量完成");
-                        Toast.makeText(MainActivity.this, "测量完成", Toast.LENGTH_SHORT).show();
+                        updateMeasurementStatus("Measurement completed");
+                        Toast.makeText(MainActivity.this, "Measurement completed", Toast.LENGTH_SHORT).show();
                     });
                     this.cancel();
                 }
@@ -996,7 +996,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private void updateMeasurementUI(boolean measuring) {
         if (startMeasurementButton != null) {
             startMeasurementButton.setEnabled(!measuring);
-            startMeasurementButton.setText(measuring ? "测量中..." : "开始测量");
+            startMeasurementButton.setText(measuring ? "Measuring..." : "Start Measurement");
         }
 
         if (stopMeasurementButton != null) {
@@ -1011,9 +1011,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
     }
 
-
-
-    // ==================== 基础功能 ====================
+    // ==================== Basic Functions ====================
 
     private void loadDeviceInfo() {
         SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
@@ -1029,16 +1027,16 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     private void scanForDevices() {
         Intent intent = new Intent(this, RingSettingsActivity.class);
-        intent.putExtra("deviceName", "指环设备");
+        intent.putExtra("deviceName", "Ring Device");
         startActivityForResult(intent, 100);
     }
 
     private void connectToDevice() {
         if (isConnected && connectionStatus == 7) {
-            recordLog("用户点击断开连接");
+            recordLog("User clicked disconnect");
             updateConnectionStatus(false);
             connectionStatus = 0;
-            Toast.makeText(this, "已断开连接", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Disconnected", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -1046,12 +1044,12 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         String savedMacAddress = prefs.getString("mac_address", "");
 
         if (savedMacAddress.isEmpty()) {
-            Toast.makeText(this, "请先扫描并选择设备", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please scan and select device first", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        recordLog("开始连接设备: " + savedMacAddress);
-        connectButton.setText("连接中...");
+        recordLog("Start connecting device: " + savedMacAddress);
+        connectButton.setText("Connecting...");
         connectButton.setBackgroundColor(Color.parseColor("#FF9800"));
 
         try {
@@ -1061,14 +1059,14 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 BLEUtils.connectLockByBLE(this, device);
                 macAddress = savedMacAddress;
             } else {
-                Toast.makeText(this, "无效的MAC地址", Toast.LENGTH_SHORT).show();
-                connectButton.setText("连接");
+                Toast.makeText(this, "Invalid MAC address", Toast.LENGTH_SHORT).show();
+                connectButton.setText("Connect");
                 connectButton.setBackgroundColor(Color.parseColor("#2196F3"));
             }
         } catch (Exception e) {
-            recordLog("连接失败: " + e.getMessage());
-            Toast.makeText(this, "连接失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            connectButton.setText("连接");
+            recordLog("Connection failed: " + e.getMessage());
+            Toast.makeText(this, "Connection failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            connectButton.setText("Connect");
             connectButton.setBackgroundColor(Color.parseColor("#2196F3"));
         }
     }
@@ -1076,21 +1074,21 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private void updateConnectionStatus(boolean connected) {
         isConnected = connected;
         if (connected && connectionStatus == 7) {
-            statusText.setText("已连接");
+            statusText.setText("Connected");
             statusText.setTextColor(Color.WHITE);
             statusIndicator.setText("✓ " + deviceName);
             statusIndicator.setTextColor(Color.parseColor("#4CAF50"));
-            connectButton.setText("已连接");
+            connectButton.setText("Connected");
             connectButton.setBackgroundColor(Color.parseColor("#4CAF50"));
             ringIdText.setText("Ring ID: " + deviceName);
             macAddressText.setText("MAC: " + macAddress + " | Version: " + version);
             batteryText.setText(batteryLevel + "%");
         } else {
-            statusText.setText("未连接");
+            statusText.setText("Disconnected");
             statusText.setTextColor(Color.parseColor("#FF5722"));
-            statusIndicator.setText("✗ 未连接");
+            statusIndicator.setText("✗ Disconnected");
             statusIndicator.setTextColor(Color.parseColor("#FF5722"));
-            connectButton.setText("连接");
+            connectButton.setText("Connect");
             connectButton.setBackgroundColor(Color.parseColor("#2196F3"));
             ringIdText.setText("Ring ID: --");
             batteryText.setText("--");
@@ -1112,16 +1110,16 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         if (plotViewTemp2 != null) plotViewTemp2.clearPlot();
     }
 
-    // ==================== 时间同步功能 ====================
+    // ==================== Time Sync Functions ====================
 
     private void updateDeviceTime() {
         if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Device not connected", Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (isTimeUpdating) {
-            Toast.makeText(this, "时间更新正在进行中，请等待", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Time update in progress, please wait", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -1129,7 +1127,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             isTimeUpdating = true;
             timeUpdateFrameId = generateRandomFrameId();
 
-            recordLog("【开始更新戒指时间】使用自定义指令");
+            recordLog("[Start Ring Time Update] Using custom command");
 
             long currentTime = System.currentTimeMillis();
             TimeZone timeZone = TimeZone.getDefault();
@@ -1149,16 +1147,16 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             hexCommand.append(String.format("%02X", timezoneValue & 0xFF));
 
             byte[] data = hexStringToByteArray(hexCommand.toString());
-            recordLog("发送时间更新命令: " + hexCommand.toString());
+            recordLog("Send time update command: " + hexCommand.toString());
 
-            updateTimeButton.setText("更新中...");
+            updateTimeButton.setText("Updating...");
             updateTimeButton.setBackgroundColor(Color.parseColor("#FF9800"));
 
             LmAPI.CUSTOMIZE_CMD(data, customizeCmdListener);
 
         } catch (Exception e) {
-            recordLog("发送时间更新命令失败: " + e.getMessage());
-            updateTimeButton.setText("更新时间");
+            recordLog("Failed to send time update command: " + e.getMessage());
+            updateTimeButton.setText("Update Time");
             updateTimeButton.setBackgroundColor(Color.parseColor("#2196F3"));
             isTimeUpdating = false;
         }
@@ -1166,12 +1164,12 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     private void calibrateTime() {
         if (!isConnected || connectionStatus != 7) {
-            Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Device not connected", Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (isTimeSyncing) {
-            Toast.makeText(this, "时间校准正在进行中，请等待", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Time calibration in progress, please wait", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -1180,7 +1178,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             timeSyncRequestTime = System.currentTimeMillis();
             timeSyncFrameId = generateRandomFrameId();
 
-            recordLog("【开始时间校准同步】使用自定义指令");
+            recordLog("[Start Time Calibration Sync] Using custom command");
 
             StringBuilder hexCommand = new StringBuilder();
             hexCommand.append(String.format("00%02X1002", timeSyncFrameId));
@@ -1191,28 +1189,28 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             }
 
             byte[] data = hexStringToByteArray(hexCommand.toString());
-            recordLog("发送时间校准命令: " + hexCommand.toString());
+            recordLog("Send time calibration command: " + hexCommand.toString());
 
-            calibrateButton.setText("校准中...");
+            calibrateButton.setText("Calibrating...");
             calibrateButton.setBackgroundColor(Color.parseColor("#FF9800"));
             timeSyncRequestTime = timeSyncRequestTime / 1000;
 
             LmAPI.CUSTOMIZE_CMD(data, customizeCmdListener);
 
         } catch (Exception e) {
-            recordLog("发送时间校准命令失败: " + e.getMessage());
-            calibrateButton.setText("校准");
+            recordLog("Failed to send time calibration command: " + e.getMessage());
+            calibrateButton.setText("Calibrate");
             calibrateButton.setBackgroundColor(Color.parseColor("#4CAF50"));
             isTimeSyncing = false;
         }
     }
 
-    // ==================== 自定义指令响应处理 ====================
+    // ==================== Custom Command Response Handling ====================
 
     private void handleCustomizeResponse(byte[] data) {
         try {
             if (data == null || data.length < 4) {
-                recordLog("自定义指令响应数据长度不足");
+                recordLog("Custom command response data length insufficient");
                 return;
             }
 
@@ -1221,58 +1219,58 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             int cmd = data[2] & 0xFF;
             int subcmd = data[3] & 0xFF;
 
-            recordLog(String.format("响应解析: FrameType=0x%02X, FrameID=0x%02X, Cmd=0x%02X, Subcmd=0x%02X",
+            recordLog(String.format("Response parsing: FrameType=0x%02X, FrameID=0x%02X, Cmd=0x%02X, Subcmd=0x%02X",
                     frameType, frameId, cmd, subcmd));
 
             if (frameType == 0x00) {
                 if (cmd == 0x10) {
                     if (subcmd == 0x00) {
-                        recordLog("识别为时间更新响应");
+                        recordLog("Identified as time update response");
                         handleTimeUpdateResponse(data);
                     } else if (subcmd == 0x02) {
-                        recordLog("识别为时间校准响应");
+                        recordLog("Identified as time calibration response");
                         handleTimeSyncResponse(data);
                     }
                 } else if (cmd == 0x36) {
                     if (subcmd == 0x10) {
-                        recordLog("识别为文件列表响应");
+                        recordLog("Identified as file list response");
                         handleFileListResponse(data);
                     } else if (subcmd == 0x11) {
-                        recordLog("识别为文件数据响应");
+                        recordLog("Identified as file data response");
                         handleFileDataResponse(data);
                     }
                 }
             }
         } catch (Exception e) {
-            recordLog("处理自定义指令响应失败: " + e.getMessage());
+            recordLog("Failed to handle custom command response: " + e.getMessage());
         }
     }
 
     private void handleTimeUpdateResponse(byte[] data) {
         try {
             if (data == null || data.length < 4) {
-                recordLog("时间更新响应数据长度不足");
+                recordLog("Time update response data length insufficient");
                 return;
             }
 
             int frameId = data[1] & 0xFF;
             if (frameId != timeUpdateFrameId) {
-                recordLog("时间更新响应Frame ID不匹配");
+                recordLog("Time update response Frame ID does not match");
                 return;
             }
 
-            recordLog("【时间更新完成】戒指时间已成功更新");
+            recordLog("[Time Update Complete] Ring time has been successfully updated");
 
             mainHandler.post(() -> {
-                updateTimeButton.setText("更新时间");
+                updateTimeButton.setText("Update Time");
                 updateTimeButton.setBackgroundColor(Color.parseColor("#2196F3"));
-                Toast.makeText(this, "戒指时间更新成功", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Ring time updated successfully", Toast.LENGTH_SHORT).show();
             });
 
         } catch (Exception e) {
-            recordLog("解析时间更新响应失败: " + e.getMessage());
+            recordLog("Failed to parse time update response: " + e.getMessage());
             mainHandler.post(() -> {
-                updateTimeButton.setText("更新时间");
+                updateTimeButton.setText("Update Time");
                 updateTimeButton.setBackgroundColor(Color.parseColor("#2196F3"));
             });
         } finally {
@@ -1285,13 +1283,13 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             long currentTime = System.currentTimeMillis() / 1000;
 
             if (data == null || data.length < 28) {
-                recordLog("时间校准响应数据长度不足");
+                recordLog("Time calibration response data length insufficient");
                 return;
             }
 
             int frameId = data[1] & 0xFF;
             if (frameId != timeSyncFrameId) {
-                recordLog("时间校准响应Frame ID不匹配");
+                recordLog("Time calibration response Frame ID does not match");
                 return;
             }
 
@@ -1305,22 +1303,22 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             long roundTripTime = currentTime - timeSyncRequestTime;
             long timeDifference = ringReceivedTime - hostSentTime;
 
-            recordLog("【时间校准结果】");
-            recordLog(String.format("往返延迟: %d s", roundTripTime));
-            recordLog(String.format("时间差: %d s", timeDifference));
+            recordLog("[Time Calibration Result]");
+            recordLog(String.format("Round trip delay: %d s", roundTripTime));
+            recordLog(String.format("Time difference: %d s", timeDifference));
 
             mainHandler.post(() -> {
-                calibrateButton.setText("校准");
+                calibrateButton.setText("Calibrate");
                 calibrateButton.setBackgroundColor(Color.parseColor("#4CAF50"));
                 Toast.makeText(this,
-                        String.format("时间校准完成\n时间差: %d s\n延迟: %d s", timeDifference, roundTripTime),
+                        String.format("Time calibration complete\nTime diff: %d s\nDelay: %d s", timeDifference, roundTripTime),
                         Toast.LENGTH_LONG).show();
             });
 
         } catch (Exception e) {
-            recordLog("解析时间校准响应失败: " + e.getMessage());
+            recordLog("Failed to parse time calibration response: " + e.getMessage());
             mainHandler.post(() -> {
-                calibrateButton.setText("校准");
+                calibrateButton.setText("Calibrate");
                 calibrateButton.setBackgroundColor(Color.parseColor("#4CAF50"));
             });
         } finally {
@@ -1328,34 +1326,34 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
     }
 
-    // ==================== 日志记录功能 ====================
+    // ==================== Log Recording ====================
 
     private void recordLog(String message) {
         String timestamp = getCurrentTimestamp();
         String fullLogMessage = "[" + timestamp + "] " + message;
 
-        // 显示到UI
+        // Display to UI
         mainHandler.post(() -> {
             if (logDisplayText != null) {
-                    logDisplayText.setText(message);
+                logDisplayText.setText(message);
 
             }
         });
 
-        // 写入文件（仅在录制状态下）
+        // Write to file (only when recording)
         if (isLogRecording && logWriter != null) {
             try {
                 logWriter.write(fullLogMessage + "\n");
                 logWriter.flush();
             } catch (IOException e) {
-                android.util.Log.e("MainActivity", "写入日志失败: " + e.getMessage());
+                android.util.Log.e("MainActivity", "Failed to write log: " + e.getMessage());
             }
         }
 
         android.util.Log.d("MainActivity", fullLogMessage);
     }
 
-    // ==================== 工具方法 ====================
+    // ==================== Utility Methods ====================
 
     public static byte[] hexStringToByteArray(String hexString) {
         int len = hexString.length();
@@ -1389,7 +1387,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     private int readUInt32LE(byte[] data, int offset) {
         if (offset + 4 > data.length) {
-            throw new IndexOutOfBoundsException("数据不足以读取4字节整型");
+            throw new IndexOutOfBoundsException("Insufficient data to read 4-byte integer");
         }
         return (data[offset] & 0xFF) |
                 ((data[offset + 1] & 0xFF) << 8) |
@@ -1399,7 +1397,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     private long readUInt64LE(byte[] data, int offset) {
         if (offset + 8 > data.length) {
-            throw new IndexOutOfBoundsException("数据不足以读取8字节时间戳");
+            throw new IndexOutOfBoundsException("Insufficient data to read 8-byte timestamp");
         }
         long result = 0;
         for (int i = 0; i < 8; i++) {
@@ -1412,33 +1410,33 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 100 && resultCode == RESULT_OK) {
-            // 从RingSettingsActivity返回，重新加载设备信息
+            // Returned from RingSettingsActivity, reload device info
             loadDeviceInfo();
         }
     }
 
-    // ==================== IResponseListener 接口实现 ====================
+    // ==================== IResponseListener Interface Implementation ====================
 
     @Override
     public void lmBleConnecting(int i) {
-        recordLog("蓝牙连接中，状态码：" + i);
+        recordLog("Bluetooth connecting, status code: " + i);
         connectionStatus = i;
         mainHandler.post(() -> {
-            connectButton.setText("连接中...");
+            connectButton.setText("Connecting...");
             connectButton.setBackgroundColor(Color.parseColor("#FF9800"));
         });
     }
 
     @Override
     public void lmBleConnectionSucceeded(int i) {
-        recordLog("蓝牙连接成功，状态码：" + i);
+        recordLog("Bluetooth connection successful, status code: " + i);
         connectionStatus = i;
 
         if (i == 7) {
             BLEUtils.setGetToken(true);
-            recordLog("连接成功，状态码为7");
+            recordLog("Connection successful, status code is 7");
 
-            // 延迟获取设备信息
+            // Delayed device info retrieval
             mainHandler.postDelayed(() -> {
                 LmAPI.GET_BATTERY((byte) 0x00);
             }, 1000);
@@ -1447,29 +1445,29 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 LmAPI.GET_VERSION((byte) 0x00);
             }, 1500);
 
-            // 更新连接状态
+            // Update connection status
             mainHandler.post(() -> {
                 isConnected = true;
                 updateConnectionStatus(true);
-                Toast.makeText(this, "连接成功", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Connection successful", Toast.LENGTH_SHORT).show();
             });
         }
     }
 
     @Override
     public void lmBleConnectionFailed(int i) {
-        recordLog("蓝牙连接失败，状态码：" + i);
+        recordLog("Bluetooth connection failed, status code: " + i);
         connectionStatus = i;
         mainHandler.post(() -> {
-            connectButton.setText("连接");
+            connectButton.setText("Connect");
             connectButton.setBackgroundColor(Color.parseColor("#2196F3"));
-            Toast.makeText(this, "连接失败", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Connection failed", Toast.LENGTH_SHORT).show();
         });
     }
 
     @Override
     public void VERSION(byte b, String s) {
-        recordLog("获取版本信息: " + s);
+        recordLog("Get version info: " + s);
         version = s;
         mainHandler.post(() -> {
             macAddressText.setText("MAC: " + macAddress + " | Version: " + version);
@@ -1478,24 +1476,24 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     @Override
     public void syncTime(byte b, byte[] bytes) {
-        recordLog("时间同步完成");
+        recordLog("Time sync completed");
     }
 
     @Override
     public void stepCount(byte[] bytes) {
-        // 步数计数
+        // Step count
     }
 
     @Override
     public void clearStepCount(byte b) {
-        // 清除步数
+        // Clear step count
     }
 
     @Override
     public void battery(byte b, byte b1) {
         if (b == 0) {
             batteryLevel = b1 & 0xFF;
-            recordLog("电池电量为: " + batteryLevel);
+            recordLog("Battery level: " + batteryLevel);
             mainHandler.post(() -> {
                 batteryText.setText(batteryLevel + "%");
             });
@@ -1504,23 +1502,23 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     @Override
     public void battery_push(byte b, byte datum) {
-        // 电池推送
+        // Battery push
     }
 
     @Override
     public void timeOut() {
-        recordLog("连接超时");
+        recordLog("Connection timeout");
     }
 
     @Override
     public void saveData(String s) {
-        // 这里可以处理实时数据
+        // Handle real-time data here
         String msg = NotificationHandler.handleNotification(hexStringToByteArray(s));
-        recordLog("接收数据: " + msg);
+        recordLog("Received data: " + msg);
 
-        // 如果连接成功但设备名称为空，尝试获取设备名称
+        // If connection successful but device name is empty, try to get device name
         if (connectionStatus == 7 && deviceName.isEmpty()) {
-            // 从SharedPreferences获取设备名称或使用默认名称
+            // Get device name from SharedPreferences or use default name
             SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
             deviceName = prefs.getString("device_name", "Ring Device");
             if (deviceName.isEmpty()) {
@@ -1534,42 +1532,42 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     @Override
     public void reset(byte[] bytes) {
-        // 重置
+        // Reset
     }
 
     @Override
     public void setCollection(byte b) {
-        // 设置采集
+        // Set collection
     }
 
     @Override
     public void getCollection(byte[] bytes) {
-        // 获取采集
+        // Get collection
     }
 
     @Override
     public void getSerialNum(byte[] bytes) {
-        // 获取序列号
+        // Get serial number
     }
 
     @Override
     public void setSerialNum(byte b) {
-        // 设置序列号
+        // Set serial number
     }
 
     @Override
     public void cleanHistory(byte b) {
-        // 清除历史
+        // Clean history
     }
 
     @Override
     public void setBlueToolName(byte b) {
-        // 设置蓝牙工具名称
+        // Set Bluetooth tool name
     }
 
     @Override
     public void readBlueToolName(byte b, String s) {
-        // 读取蓝牙工具名称
+        // Read Bluetooth tool name
         if (deviceName.isEmpty()) {
             deviceName = s;
             mainHandler.post(() -> {
@@ -1580,124 +1578,124 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     @Override
     public void stopRealTimeBP(byte b) {
-        // 停止实时血压
+        // Stop real-time blood pressure
     }
 
     @Override
     public void BPwaveformData(byte b, byte b1, String s) {
-        // 血压波形数据
+        // Blood pressure waveform data
     }
 
     @Override
     public void onSport(int i, byte[] bytes) {
-        // 运动数据
+        // Sport data
     }
 
     @Override
     public void breathLight(byte b) {
-        // 呼吸灯
+        // Breathing light
     }
 
     @Override
     public void SET_HID(byte b) {
-        // 设置HID
+        // Set HID
     }
 
     @Override
     public void GET_HID(byte b, byte b1, byte b2) {
-        // 获取HID
+        // Get HID
     }
 
     @Override
     public void GET_HID_CODE(byte[] bytes) {
-        // 获取HID代码
+        // Get HID code
     }
 
     @Override
     public void GET_CONTROL_AUDIO_ADPCM(byte b) {
-        // 获取控制音频ADPCM
+        // Get control audio ADPCM
     }
 
     @Override
     public void SET_AUDIO_ADPCM_AUDIO(byte b) {
-        // 设置音频ADPCM
+        // Set audio ADPCM
     }
 
     @Override
     public void TOUCH_AUDIO_FINISH_XUN_FEI() {
-        // 触摸音频完成讯飞
+        // Touch audio finish XunFei
     }
 
     @Override
     public void setAudio(short i, int i1, byte[] bytes) {
-        // 设置音频
+        // Set audio
     }
 
     @Override
     public void stopHeart(byte b) {
-        // 停止心率
+        // Stop heart rate
     }
 
     @Override
     public void stopQ2(byte b) {
-        // 停止Q2
+        // Stop Q2
     }
 
     @Override
     public void GET_ECG(byte[] bytes) {
-        // 获取ECG
+        // Get ECG
     }
 
     @Override
     public void SystemControl(SystemControlBean systemControlBean) {
-        // 系统控制
+        // System control
     }
 
     @Override
     public void setUserInfo(byte result) {
-        // 设置用户信息
+        // Set user info
     }
 
     @Override
     public void getUserInfo(int sex, int height, int weight, int age) {
-        // 获取用户信息
+        // Get user info
     }
 
     @Override
     public void CONTROL_AUDIO(byte[] bytes) {
-        // 控制音频
+        // Control audio
     }
 
     @Override
     public void motionCalibration(byte b) {
-        // 运动校准
+        // Motion calibration
     }
 
     @Override
     public void stopBloodPressure(byte b) {
-        // 停止血压
+        // Stop blood pressure
     }
 
     @Override
     public void appBind(SystemControlBean systemControlBean) {
-        // 应用绑定
+        // App bind
     }
 
     @Override
     public void appConnect(SystemControlBean systemControlBean) {
-        // 应用连接
+        // App connect
     }
 
     @Override
     public void appRefresh(SystemControlBean systemControlBean) {
-        // 应用刷新
+        // App refresh
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        // 清理资源
+        // Clean up resources
         if (mainHandler != null) {
             mainHandler.removeCallbacksAndMessages(null);
         }
@@ -1707,16 +1705,16 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             measurementTimer = null;
         }
 
-        // 关闭日志文件
+        // Close log file
         if (logWriter != null) {
             try {
                 logWriter.close();
                 logWriter = null;
             } catch (IOException e) {
-                android.util.Log.e("MainActivity", "关闭日志文件失败: " + e.getMessage());
+                android.util.Log.e("MainActivity", "Failed to close log file: " + e.getMessage());
             }
         }
 
-        recordLog("MainActivity销毁，资源已清理");
+        recordLog("MainActivity destroyed, resources cleaned up");
     }
 }

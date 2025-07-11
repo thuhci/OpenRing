@@ -45,19 +45,19 @@ public class RingSettingsActivity extends AppCompatActivity {
                 return;
             }
 
-            // 解析扫描到的设备数据
+            // Parse scanned device data
             BleDeviceInfo bleDeviceInfo = LogicalApi.getBleDeviceInfoWhenBleScan(device, rssi, bytes, true);
             if (bleDeviceInfo != null) {
                 Log.e("RingLog", bleDeviceInfo.getDevice().getName() + " - " + bleDeviceInfo.getDevice().getAddress());
 
                 String deviceInfo = device.getName() + " - MAC: " + device.getAddress();
 
-                // 防止重复添加设备信息
+                // Prevent duplicate device info
                 if (!deviceInfoList.contains(deviceInfo)) {
                     deviceInfoList.add(deviceInfo);
                     scannedDevices.add(device);
 
-                    // 确保 UI 更新在主线程
+                    // Ensure UI updates on main thread
                     runOnUiThread(() -> {
                         if (deviceAdapter != null) {
                             deviceAdapter.notifyDataSetChanged();
@@ -77,7 +77,7 @@ public class RingSettingsActivity extends AppCompatActivity {
 
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
-            Toast.makeText(this, "设备不支持蓝牙", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Device does not support Bluetooth", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -90,7 +90,7 @@ public class RingSettingsActivity extends AppCompatActivity {
 
         String name = getIntent().getStringExtra("deviceName");
         if (name != null) {
-            setTitle(name + " 设置");
+            setTitle(name + " Settings");
         }
     }
 
@@ -102,7 +102,7 @@ public class RingSettingsActivity extends AppCompatActivity {
         deviceCountText = findViewById(R.id.deviceCountText);
         emptyStateLayout = findViewById(R.id.emptyStateLayout);
 
-        // 返回按钮 - 使用Button而不是ImageView
+        // Back button - using Button instead of ImageView
         Button backBtn = findViewById(R.id.backButton);
         if (backBtn != null) {
             backBtn.setOnClickListener(v -> finish());
@@ -110,7 +110,7 @@ public class RingSettingsActivity extends AppCompatActivity {
 
         TextView info = findViewById(R.id.settingsInfo);
         if (info != null) {
-            info.setText("指环设备设置");
+            info.setText("Ring Device Settings");
         }
 
         deviceInfoList = new ArrayList<>();
@@ -136,18 +136,18 @@ public class RingSettingsActivity extends AppCompatActivity {
 
         if (!TextUtils.isEmpty(savedMac)) {
             String displayText = !TextUtils.isEmpty(savedName) ?
-                    "选中设备: " + savedName + " (" + savedMac + ")" :
-                    "选中设备: " + savedMac;
+                    "Selected Device: " + savedName + " (" + savedMac + ")" :
+                    "Selected Device: " + savedMac;
             selectedDeviceInfo.setText(displayText);
         } else {
-            selectedDeviceInfo.setText("选中设备: 无");
+            selectedDeviceInfo.setText("Selected Device: None");
         }
     }
 
     private void updateDeviceCount() {
         int count = scannedDevices.size();
         if (deviceCountText != null) {
-            deviceCountText.setText(count + "个设备");
+            deviceCountText.setText(count + " devices");
         }
     }
 
@@ -165,11 +165,11 @@ public class RingSettingsActivity extends AppCompatActivity {
 
     private void startBluetoothScan() {
         if (!bluetoothAdapter.isEnabled()) {
-            Toast.makeText(this, "请先启用蓝牙", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please enable Bluetooth first", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // 清空之前的扫描结果
+        // Clear previous scan results
         deviceInfoList.clear();
         scannedDevices.clear();
         if (deviceAdapter != null) {
@@ -178,26 +178,26 @@ public class RingSettingsActivity extends AppCompatActivity {
         updateDeviceCount();
         updateEmptyState();
 
-        // 开始扫描
+        // Start scan
         isScanning = true;
-        scanButton.setText("停止扫描");
+        scanButton.setText("Stop Scan");
         scanButton.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
 
         BLEUtils.startLeScan(this, leScanCallback);
-        Log.d("RingLog", "开始蓝牙扫描...");
+        Log.d("RingLog", "Starting Bluetooth scan...");
 
-        Toast.makeText(this, "开始扫描设备...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Starting device scan...", Toast.LENGTH_SHORT).show();
     }
 
     private void stopBluetoothScan() {
         if (isScanning) {
             BLEUtils.stopLeScan(this, leScanCallback);
             isScanning = false;
-            scanButton.setText("开始扫描");
+            scanButton.setText("Start Scan");
             scanButton.setBackgroundColor(getResources().getColor(android.R.color.holo_blue_light));
-            Log.d("RingLog", "停止蓝牙扫描");
+            Log.d("RingLog", "Stopping Bluetooth scan");
 
-            Toast.makeText(this, "扫描已停止", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Scan stopped", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -218,10 +218,10 @@ public class RingSettingsActivity extends AppCompatActivity {
     }
 
     public void updateSelectedDeviceInfo(String macAddress) {
-        // 更新显示选中设备的信息
+        // Update display of selected device info
         String deviceName = "";
 
-        // 从扫描结果中查找设备名称
+        // Find device name from scan results
         for (int i = 0; i < scannedDevices.size(); i++) {
             if (scannedDevices.get(i).getAddress().equals(macAddress)) {
                 deviceName = scannedDevices.get(i).getName();
@@ -229,28 +229,28 @@ public class RingSettingsActivity extends AppCompatActivity {
             }
         }
 
-        // 保存设备名称到SharedPreferences
+        // Save device name to SharedPreferences
         SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.putString("device_name", deviceName);
         editor.apply();
 
-        // 更新显示
+        // Update display
         String displayText = !TextUtils.isEmpty(deviceName) ?
-                "选中设备: " + deviceName + " (" + macAddress + ")" :
-                "选中设备: " + macAddress;
+                "Selected Device: " + deviceName + " (" + macAddress + ")" :
+                "Selected Device: " + macAddress;
         selectedDeviceInfo.setText(displayText);
 
-        // 设置结果，通知MainActivity
+        // Set result to notify MainActivity
         setResult(RESULT_OK);
 
-        Toast.makeText(this, "设备选择已保存", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Device selection saved", Toast.LENGTH_SHORT).show();
     }
 
     @Override
     public void onBackPressed() {
         super.onBackPressed();
-        // 确保返回时停止扫描
+        // Ensure scan stops when going back
         if (isScanning) {
             stopBluetoothScan();
         }

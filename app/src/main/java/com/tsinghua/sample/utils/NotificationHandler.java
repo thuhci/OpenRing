@@ -11,25 +11,26 @@ import java.util.*;
 public class NotificationHandler {
     private static final String TAG = "NotificationHandler";
 
-    // 实时数据显示的PlotView
+    // Real-time data display PlotViews
     private static PlotView plotViewG, plotViewI;
     private static PlotView plotViewR, plotViewX;
     private static PlotView plotViewY, plotViewZ;
     private static PlotView plotViewGyroX, plotViewGyroY, plotViewGyroZ;
     private static PlotView plotViewTemp0, plotViewTemp1, plotViewTemp2;
-    // 文件操作回调接口
+
+    // File operation callback interface
     public interface FileResponseCallback {
         void onFileListReceived(byte[] data);
         void onFileDataReceived(byte[] data);
     }
 
-    // 时间操作回调接口（包含校准和更新）
+    // Time operation callback interface (includes calibration and update)
     public interface TimeSyncCallback {
         void onTimeSyncResponse(byte[] data);
         void onTimeUpdateResponse(byte[] data);
     }
 
-    // 设备指令发送回调接口
+    // Device command sending callback interface
     public interface DeviceCommandCallback {
         void sendCommand(byte[] commandData);
         default void onMeasurementStarted() {}
@@ -38,7 +39,7 @@ public class NotificationHandler {
         default void onExerciseStopped() {}
     }
 
-    // 运动状态回调接口
+    // Exercise status callback interface
     public interface ExerciseStatusCallback {
         void onExerciseProgress(int currentSegment, int totalSegments, int progressPercent);
         void onSegmentCompleted(int segmentNumber, int totalSegments);
@@ -50,17 +51,17 @@ public class NotificationHandler {
     private static DeviceCommandCallback deviceCommandCallback;
     private static ExerciseStatusCallback exerciseStatusCallback;
 
-    // 测量参数配置类
+    // Measurement parameter configuration class
     public static class MeasurementConfig {
-        public int collectTime = 30;        // 采集时间，默认30秒
-        public int collectFreq = 25;        // 采集频率，默认25Hz (保留)
-        public int ledGreenCurrent = 20;    // green LED电流，默认20 (392uA * 20 = 7.84mA)
-        public int ledIrCurrent = 20;       // IR LED电流，默认20
-        public int ledRedCurrent = 20;      // red LED电流，默认20
-        public boolean progressResponse = true;   // 进度响应，默认上传
-        public boolean waveformResponse = true;   // 波形响应，默认上传
+        public int collectTime = 30;        // Collection time, default 30 seconds
+        public int collectFreq = 25;        // Collection frequency, default 25Hz (reserved)
+        public int ledGreenCurrent = 20;    // green LED current, default 20 (392uA * 20 = 7.84mA)
+        public int ledIrCurrent = 20;       // IR LED current, default 20
+        public int ledRedCurrent = 20;      // red LED current, default 20
+        public boolean progressResponse = true;   // Progress response, default upload
+        public boolean waveformResponse = true;   // Waveform response, default upload
 
-        // 电流范围验证 (0-50档位)
+        // Current range validation (0-50 levels)
         public void setLedCurrents(int green, int ir, int red) {
             this.ledGreenCurrent = Math.max(0, Math.min(50, green));
             this.ledIrCurrent = Math.max(0, Math.min(50, ir));
@@ -73,36 +74,36 @@ public class NotificationHandler {
         }
     }
 
-    // 运动配置类
+    // Exercise configuration class
     public static class ExerciseConfig {
-        public int totalDuration = 300;     // 总运动时长，默认5分钟（秒）
-        public int segmentTime = 60;        // 片段时间，默认60秒
-        public boolean autoStart = false;   // 是否自动开始
-        public boolean enableRest = true;   // 是否启用休息间隔
-        public int restTime = 30;           // 休息时间，默认30秒
+        public int totalDuration = 300;     // Total exercise duration, default 5 minutes (seconds)
+        public int segmentTime = 60;        // Segment time, default 60 seconds
+        public boolean autoStart = false;   // Whether to auto start
+        public boolean enableRest = true;   // Whether to enable rest intervals
+        public int restTime = 30;           // Rest time, default 30 seconds
 
         public int getTotalSegments() {
-            return (totalDuration + segmentTime - 1) / segmentTime; // 向上取整
+            return (totalDuration + segmentTime - 1) / segmentTime; // Round up
         }
 
         public String getExerciseDescription() {
-            return String.format("总时长: %d分%d秒, 片段: %d秒, 共%d段",
+            return String.format("Total: %dmin%dsec, Segment: %dsec, %d segments",
                     totalDuration / 60, totalDuration % 60, segmentTime, getTotalSegments());
         }
     }
 
-    // 当前状态跟踪
+    // Current status tracking
     private static boolean isMeasuring = false;
     private static boolean isExercising = false;
-    private static boolean isMeasurementOngoing = false; // 新增：区分测量是否正在进行
+    private static boolean isMeasurementOngoing = false; // New: distinguish if measurement is in progress
     private static int currentFrameId = 1;
     private static MeasurementConfig measurementConfig = new MeasurementConfig();
     private static ExerciseConfig exerciseConfig = new ExerciseConfig();
     private static Timer exerciseTimer;
-    private static Timer measurementTimer; // 新增：测量计时器
+    private static Timer measurementTimer; // New: measurement timer
     private static int currentSegment = 0;
 
-    // 设置PlotView的方法
+    // PlotView setting methods
     public static void setPlotViewG(PlotView chartView) { plotViewG = chartView; }
     public static void setPlotViewI(PlotView chartView) { plotViewI = chartView; }
     public static void setPlotViewR(PlotView chartView) { plotViewR = chartView; }
@@ -113,36 +114,37 @@ public class NotificationHandler {
     public static void setPlotViewGyroY(PlotView chartView) { plotViewGyroY = chartView; }
     public static void setPlotViewGyroZ(PlotView chartView) { plotViewGyroZ = chartView; }
 
-    // 新增：温度PlotView设置方法
+    // New: Temperature PlotView setting methods
     public static void setPlotViewTemp0(PlotView chartView) { plotViewTemp0 = chartView; }
     public static void setPlotViewTemp1(PlotView chartView) { plotViewTemp1 = chartView; }
     public static void setPlotViewTemp2(PlotView chartView) { plotViewTemp2 = chartView; }
+
     public interface LogRecorder {
         void recordLog(String message);
     }
 
     private static LogRecorder logRecorder;
 
-    // 添加设置日志记录器的方法
+    // Add method to set log recorder
     public static void setLogRecorder(LogRecorder recorder) {
         logRecorder = recorder;
         if (recorder != null) {
-            recordLog("NotificationHandler日志记录器已连接到RingViewHolder");
+            recordLog("NotificationHandler log recorder connected to RingViewHolder");
         }
     }
 
-    // 添加内部recordLog方法
+    // Add internal recordLog method
     private static void recordLog(String message) {
-        // 输出到Android Log（保持原有功能）
+        // Output to Android Log (maintain original functionality)
         Log.d(TAG, message);
 
-        // 如果设置了外部日志记录器，调用外部recordLog
+        // If external log recorder is set, call external recordLog
         if (logRecorder != null) {
             logRecorder.recordLog("[NH] " + message);
         }
     }
 
-    // 设置回调方法
+    // Set callback methods
     public static void setFileResponseCallback(FileResponseCallback callback) {
         fileResponseCallback = callback;
         Log.d(TAG, "File response callback set");
@@ -163,7 +165,7 @@ public class NotificationHandler {
         Log.d(TAG, "Exercise status callback set");
     }
 
-    // 获取和设置测量配置
+    // Get and set measurement configuration
     public static MeasurementConfig getMeasurementConfig() {
         return measurementConfig;
     }
@@ -173,13 +175,13 @@ public class NotificationHandler {
         Log.d(TAG, "Measurement config updated: " + config.getCurrentDescription());
     }
 
-    // 新增：简化的设置测量时间方法
+    // New: Simplified method to set measurement time
     public static void setMeasurementTime(int timeSeconds) {
         measurementConfig.collectTime = Math.max(1, Math.min(3600, timeSeconds));
         Log.d(TAG, "Measurement time set to: " + measurementConfig.collectTime + " seconds");
     }
 
-    // 获取和设置运动配置
+    // Get and set exercise configuration
     public static ExerciseConfig getExerciseConfig() {
         return exerciseConfig;
     }
@@ -189,14 +191,14 @@ public class NotificationHandler {
         Log.d(TAG, "Exercise config updated: " + config.getExerciseDescription());
     }
 
-    // 新增：简化的设置运动参数方法
+    // New: Simplified method to set exercise parameters
     public static void setExerciseParams(int totalDurationSeconds, int segmentDurationSeconds) {
         exerciseConfig.totalDuration = Math.max(60, Math.min(86400, totalDurationSeconds));
         exerciseConfig.segmentTime = Math.max(30, Math.min(exerciseConfig.totalDuration, segmentDurationSeconds));
         Log.d(TAG, "Exercise params set: Total=" + exerciseConfig.totalDuration + "s, Segment=" + exerciseConfig.segmentTime + "s");
     }
 
-    // 开始主动测量
+    // Start active measurement
     public static boolean startActiveMeasurement() {
         return startActiveMeasurement(measurementConfig);
     }
@@ -213,18 +215,18 @@ public class NotificationHandler {
         }
 
         try {
-            // 生成主动测量指令
+            // Generate active measurement command
             byte[] command = buildActiveMeasurementCommand(config);
             deviceCommandCallback.sendCommand(command);
 
             isMeasuring = true;
-            isMeasurementOngoing = true; // 新增：标记测量正在进行
+            isMeasurementOngoing = true; // New: mark measurement in progress
             deviceCommandCallback.onMeasurementStarted();
 
-            // 新增：启动测量监控计时器（但不自动停止）
+            // New: Start measurement monitor timer (but don't auto stop)
             startMeasurementMonitor(config.collectTime);
 
-            recordLog(String.format("【开始主动测量】%s, 持续时间: %d秒",
+            recordLog(String.format("[Start Active Measurement] %s, Duration: %d seconds",
                     config.getCurrentDescription(), config.collectTime));
             Log.i(TAG, String.format("Started active measurement: %s, Duration: %ds",
                     config.getCurrentDescription(), config.collectTime));
@@ -236,7 +238,7 @@ public class NotificationHandler {
         }
     }
 
-    // 新增：启动测量监控计时器
+    // New: Start measurement monitor timer
     private static void startMeasurementMonitor(int durationSeconds) {
         if (measurementTimer != null) {
             measurementTimer.cancel();
@@ -246,22 +248,22 @@ public class NotificationHandler {
         measurementTimer.schedule(new TimerTask() {
             @Override
             public void run() {
-                // 测量时间到达，但不自动停止，只记录日志
-                recordLog(String.format("【测量时间到达】预设时间 %d 秒已完成，测量仍在继续", durationSeconds));
-                recordLog("可手动点击'停止采集'按钮来结束测量");
+                // Measurement time reached, but don't auto stop, just log
+                recordLog(String.format("[Measurement Time Reached] Preset %d seconds completed, measurement continues", durationSeconds));
+                recordLog("You can manually click 'Stop Collection' button to end measurement");
                 Log.i(TAG, "Measurement duration completed, but measurement continues until manual stop");
 
-                // 可以在这里发送通知给UI，告知用户测量时间已到
-                // 但不改变isMeasuring状态，让用户手动控制停止
+                // Can send notification to UI here to inform user measurement time is up
+                // But don't change isMeasuring status, let user manually control stop
             }
         }, durationSeconds * 1000);
     }
 
-    // 修改：停止测量方法，使用新的停止采集指令
+    // Modified: Stop measurement method, using new stop collection command
     public static boolean stopMeasurement() {
         if (!isMeasuring) {
             Log.w(TAG, "No measurement in progress");
-            recordLog("【停止测量失败】当前没有正在进行的测量");
+            recordLog("[Stop Measurement Failed] No measurement currently in progress");
             return false;
         }
 
@@ -271,11 +273,11 @@ public class NotificationHandler {
         }
 
         try {
-            // 使用新的停止采集指令 (Cmd=0x3C, Subcmd=0x04)
+            // Use new stop collection command (Cmd=0x3C, Subcmd=0x04)
             byte[] command = buildStopCollectionCommand();
             deviceCommandCallback.sendCommand(command);
 
-            // 停止测量监控计时器
+            // Stop measurement monitor timer
             if (measurementTimer != null) {
                 measurementTimer.cancel();
                 measurementTimer = null;
@@ -285,18 +287,18 @@ public class NotificationHandler {
             isMeasurementOngoing = false;
             deviceCommandCallback.onMeasurementStopped();
 
-            recordLog("【手动停止测量】发送停止采集指令");
+            recordLog("[Manual Stop Measurement] Send stop collection command");
             Log.i(TAG, "Stopped measurement manually");
             return true;
 
         } catch (Exception e) {
             Log.e(TAG, "Failed to stop measurement", e);
-            recordLog("【停止测量失败】" + e.getMessage());
+            recordLog("[Stop Measurement Failed] " + e.getMessage());
             return false;
         }
     }
 
-    // 开始运动
+    // Start exercise
     public static boolean startExercise() {
         return startExercise(exerciseConfig);
     }
@@ -316,11 +318,11 @@ public class NotificationHandler {
             isExercising = true;
             currentSegment = 0;
 
-            // 发送运动开始指令
+            // Send exercise start command
             byte[] command = buildStartExerciseCommand(config);
             deviceCommandCallback.sendCommand(command);
 
-            // 启动运动计时器
+            // Start exercise timer
             startExerciseTimer(config);
 
             deviceCommandCallback.onExerciseStarted(config.totalDuration, config.segmentTime);
@@ -335,7 +337,7 @@ public class NotificationHandler {
         }
     }
 
-    // 结束运动
+    // End exercise
     public static boolean stopExercise() {
         if (!isExercising) {
             Log.w(TAG, "No exercise in progress");
@@ -343,19 +345,19 @@ public class NotificationHandler {
         }
 
         try {
-            // 发送运动停止指令
+            // Send exercise stop command
             if (deviceCommandCallback != null) {
                 byte[] command = buildStopExerciseCommand();
                 deviceCommandCallback.sendCommand(command);
             }
 
-            // 停止计时器
+            // Stop timer
             if (exerciseTimer != null) {
                 exerciseTimer.cancel();
                 exerciseTimer = null;
             }
 
-            // 停止当前测量
+            // Stop current measurement
             if (isMeasuring) {
                 stopMeasurement();
             }
@@ -376,7 +378,7 @@ public class NotificationHandler {
         }
     }
 
-    // 启动运动计时器
+    // Start exercise timer
     private static void startExerciseTimer(ExerciseConfig config) {
         exerciseTimer = new Timer();
         final int totalSegments = config.getTotalSegments();
@@ -387,17 +389,17 @@ public class NotificationHandler {
                 currentSegment++;
 
                 if (currentSegment <= totalSegments) {
-                    // 通知片段完成
+                    // Notify segment completed
                     if (exerciseStatusCallback != null) {
                         int progress = (currentSegment * 100) / totalSegments;
                         exerciseStatusCallback.onSegmentCompleted(currentSegment, totalSegments);
                         exerciseStatusCallback.onExerciseProgress(currentSegment, totalSegments, progress);
                     }
 
-                    // 如果不是最后一段，开始下一段测量
+                    // If not the last segment, start next segment measurement
                     if (currentSegment < totalSegments) {
                         if (config.enableRest && config.restTime > 0) {
-                            // 休息间隔后再开始下一段
+                            // Start next segment after rest interval
                             Timer restTimer = new Timer();
                             restTimer.schedule(new TimerTask() {
                                 @Override
@@ -406,22 +408,22 @@ public class NotificationHandler {
                                 }
                             }, config.restTime * 1000);
                         } else {
-                            // 直接开始下一段
+                            // Start next segment directly
                             startNextSegment(config);
                         }
                     } else {
-                        // 运动完成
+                        // Exercise completed
                         completeExercise();
                     }
                 } else {
-                    // 运动完成
+                    // Exercise completed
                     completeExercise();
                 }
             }
         }, config.segmentTime * 1000, config.segmentTime * 1000);
     }
 
-    // 开始下一段运动
+    // Start next exercise segment
     private static void startNextSegment(ExerciseConfig config) {
         if (isExercising && currentSegment < config.getTotalSegments()) {
             MeasurementConfig segmentConfig = new MeasurementConfig();
@@ -437,7 +439,7 @@ public class NotificationHandler {
         }
     }
 
-    // 完成运动
+    // Complete exercise
     private static void completeExercise() {
         if (exerciseTimer != null) {
             exerciseTimer.cancel();
@@ -457,9 +459,9 @@ public class NotificationHandler {
         Log.i(TAG, "Exercise completed");
     }
 
-    // 构建主动测量指令
+    // Build active measurement command
     private static byte[] buildActiveMeasurementCommand(MeasurementConfig config) {
-        // 指令格式: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1) + Data(7)
+        // Command format: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1) + Data(7)
         byte[] command = new byte[11];
 
         command[0] = 0x00;  // Frame Type
@@ -467,14 +469,14 @@ public class NotificationHandler {
         command[2] = 0x3C;  // Cmd
         command[3] = 0x00;  // Subcmd
 
-        // Data部分 (7字节)
-        command[4] = (byte)(config.collectTime & 0xFF);  // 采集时间
-        command[5] = (byte)(config.collectFreq & 0xFF);  // 采集频率
-        command[6] = (byte)(config.ledGreenCurrent & 0xFF);  // green LED电流
-        command[7] = (byte)(config.ledIrCurrent & 0xFF);    // IR LED电流
-        command[8] = (byte)(config.ledRedCurrent & 0xFF);   // red LED电流
-        command[9] = (byte)(config.progressResponse ? 1 : 0);  // 进度响应
-        command[10] = (byte)(config.waveformResponse ? 1 : 0); // 波形响应
+        // Data part (7 bytes)
+        command[4] = (byte)(config.collectTime & 0xFF);  // Collection time
+        command[5] = (byte)(config.collectFreq & 0xFF);  // Collection frequency
+        command[6] = (byte)(config.ledGreenCurrent & 0xFF);  // green LED current
+        command[7] = (byte)(config.ledIrCurrent & 0xFF);    // IR LED current
+        command[8] = (byte)(config.ledRedCurrent & 0xFF);   // red LED current
+        command[9] = (byte)(config.progressResponse ? 1 : 0);  // Progress response
+        command[10] = (byte)(config.waveformResponse ? 1 : 0); // Waveform response
 
         Log.d(TAG, String.format("Built measurement command: Time=%ds, Green=%d, IR=%d, Red=%d",
                 config.collectTime, config.ledGreenCurrent, config.ledIrCurrent, config.ledRedCurrent));
@@ -482,60 +484,60 @@ public class NotificationHandler {
         return command;
     }
 
-    // 新增：构建停止采集指令 (基于文档中的新指令格式)
+    // New: Build stop collection command (based on new command format in docs)
     private static byte[] buildStopCollectionCommand() {
-        // 心率停止采集指令格式: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1)
-        // 请求指令：00[FrameID]3C04
+        // Heart rate stop collection command format: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1)
+        // Request command: 00[FrameID]3C04
         byte[] command = new byte[4];
 
         command[0] = 0x00;  // Frame Type
         command[1] = (byte)(currentFrameId++ & 0xFF);  // Frame ID
-        command[2] = 0x3C;  // Cmd (心率相关指令)
-        command[3] = 0x04;  // Subcmd (停止采集)
+        command[2] = 0x3C;  // Cmd (heart rate related command)
+        command[3] = 0x04;  // Subcmd (stop collection)
 
-        recordLog(String.format("构建停止采集指令: %02X%02X%02X%02X",
+        recordLog(String.format("Build stop collection command: %02X%02X%02X%02X",
                 command[0], command[1], command[2], command[3]));
         Log.d(TAG, "Built stop collection command (0x3C04)");
         return command;
     }
 
-    // 构建停止测量指令（保留原有的，作为备用）
+    // Build stop measurement command (keep original as backup)
     private static byte[] buildStopMeasurementCommand() {
-        // 指令格式: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1)
+        // Command format: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1)
         byte[] command = new byte[4];
 
         command[0] = 0x00;  // Frame Type
         command[1] = (byte)(currentFrameId++ & 0xFF);  // Frame ID
         command[2] = 0x3C;  // Cmd
-        command[3] = 0x02;  // Subcmd (原有的停止指令)
+        command[3] = 0x02;  // Subcmd (original stop command)
 
         Log.d(TAG, "Built stop measurement command (0x3C02)");
         return command;
     }
 
-    // 新增：构建开始运动指令
+    // New: Build start exercise command
     private static byte[] buildStartExerciseCommand(ExerciseConfig config) {
-        // 指令格式: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1) + Data(10)
+        // Command format: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1) + Data(10)
         byte[] command = new byte[14];
 
         command[0] = 0x00;  // Frame Type
         command[1] = (byte)(68);  // Frame ID
-        command[2] = 0x38;  // Cmd (运动指令)
-        command[3] = 0x01;  // Subcmd (开始运动)
+        command[2] = 0x38;  // Cmd (exercise command)
+        command[3] = 0x01;  // Subcmd (start exercise)
 
-        // Data部分: sport_mode(2字节) + time(4字节) + slice_storage_time(4字节)
-        // sport_mode (2字节)
+        // Data part: sport_mode(2 bytes) + time(4 bytes) + slice_storage_time(4 bytes)
+        // sport_mode (2 bytes)
         int sportMode = 1;
         command[4] = (byte)(sportMode & 0xFF);
         command[5] = (byte)((sportMode >> 8) & 0xFF);
 
-        // time (4字节) - 总时长，小端序
+        // time (4 bytes) - total duration, little endian
         command[6] = (byte)(config.totalDuration & 0xFF);
         command[7] = (byte)((config.totalDuration >> 8) & 0xFF);
         command[8] = (byte)((config.totalDuration >> 16) & 0xFF);
         command[9] = (byte)((config.totalDuration >> 24) & 0xFF);
 
-        // slice_storage_time (4字节) - 片段时长，小端序
+        // slice_storage_time (4 bytes) - segment duration, little endian
         command[10] = (byte)(config.segmentTime & 0xFF);
         command[11] = (byte)((config.segmentTime >> 8) & 0xFF);
         command[12] = (byte)((config.segmentTime >> 16) & 0xFF);
@@ -547,21 +549,21 @@ public class NotificationHandler {
         return command;
     }
 
-    // 新增：构建停止运动指令
+    // New: Build stop exercise command
     private static byte[] buildStopExerciseCommand() {
-        // 指令格式: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1)
+        // Command format: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1)
         byte[] command = new byte[4];
 
         command[0] = 0x00;  // Frame Type
         command[1] = (byte)(68);  // Frame ID
-        command[2] = 0x38;  // Cmd (运动指令)
-        command[3] = 0x03;  // Subcmd (停止运动)
+        command[2] = 0x38;  // Cmd (exercise command)
+        command[3] = 0x03;  // Subcmd (stop exercise)
 
         Log.d(TAG, "Built stop exercise command");
         return command;
     }
 
-    // 获取当前状态
+    // Get current status
     public static boolean isMeasuring() {
         return isMeasuring;
     }
@@ -570,7 +572,7 @@ public class NotificationHandler {
         return isExercising;
     }
 
-    // 新增：获取测量是否正在进行的状态
+    // New: Get measurement ongoing status
     public static boolean isMeasurementOngoing() {
         return isMeasurementOngoing;
     }
@@ -584,7 +586,7 @@ public class NotificationHandler {
     }
 
     /**
-     * 小端序读取4字节无符号整数
+     * Little endian read 4-byte unsigned integer
      */
     private static long readUInt32LE(byte[] data, int offset) {
         if (offset + 4 > data.length) {
@@ -597,7 +599,7 @@ public class NotificationHandler {
     }
 
     /**
-     * 小端序读取2字节有符号整数
+     * Little endian read 2-byte signed integer
      */
     private static short readInt16LE(byte[] data, int offset) {
         if (offset + 2 > data.length) {
@@ -607,7 +609,7 @@ public class NotificationHandler {
     }
 
     /**
-     * 小端序读取8字节时间戳
+     * Little endian read 8-byte timestamp
      */
     private static long readUInt64LE(byte[] data, int offset) {
         if (offset + 8 > data.length) {
@@ -621,7 +623,7 @@ public class NotificationHandler {
     }
 
     /**
-     * 主要数据处理入口
+     * Main data processing entry point
      */
     public static String handleNotification(byte[] data) {
         if (data == null || data.length < 4) {
@@ -637,23 +639,23 @@ public class NotificationHandler {
         Log.d(TAG, String.format("Received data: FrameType=0x%02X, FrameID=0x%02X, Cmd=0x%02X, Subcmd=0x%02X, Length=%d",
                 frameType, frameId, cmd, subcmd, data.length));
 
-        // 时间校准处理 (Cmd = 0x10)
+        // Time calibration handling (Cmd = 0x10)
         if (cmd == 0x10) {
             return handleTimeSyncOperations(data, frameId, subcmd);
         }
-        // 文件操作处理 (Cmd = 0x36)
+        // File operation handling (Cmd = 0x36)
         else if (cmd == 0x36) {
             return handleFileOperations(data, frameId, subcmd);
         }
-        // 运动指令处理 (Cmd = 0x38)
+        // Exercise command handling (Cmd = 0x38)
         else if (cmd == 0x38) {
             return handleExerciseOperations(data, frameId, subcmd);
         }
-        // 实时数据处理 (Cmd = 0x3C)
+        // Real-time data handling (Cmd = 0x3C)
         else if (cmd == 0x3C) {
             return handleRealtimeData(data, frameId, subcmd);
         }
-        // 其他命令
+        // Other commands
         else {
             String result = "Unknown command: 0x" + String.format("%02X", cmd);
             Log.w(TAG, result);
@@ -662,16 +664,16 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理运动操作相关的响应 (Cmd = 0x38)
+     * Handle exercise operation related responses (Cmd = 0x38)
      */
     private static String handleExerciseOperations(byte[] data, int frameId, int subcmd) {
         Log.d(TAG, String.format("Handling exercise operation: Subcmd=0x%02X", subcmd));
 
         switch (subcmd) {
-            case 0x01: // 开始运动响应
+            case 0x01: // Start exercise response
                 return handleStartExerciseResponse(data, frameId);
 
-            case 0x03: // 停止运动响应
+            case 0x03: // Stop exercise response
                 return handleStopExerciseResponse(data, frameId);
 
             default:
@@ -682,14 +684,14 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理开始运动响应
+     * Handle start exercise response
      */
     private static String handleStartExerciseResponse(byte[] data, int frameId) {
         Log.d(TAG, "Processing start exercise response");
 
         try {
             String result = String.format("Start Exercise Response (Frame ID: %d): Command sent successfully", frameId);
-            recordLog("【开始运动响应】指令发送成功");
+            recordLog("[Start Exercise Response] Command sent successfully");
             Log.i(TAG, result);
             return result;
 
@@ -701,14 +703,14 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理停止运动响应
+     * Handle stop exercise response
      */
     private static String handleStopExerciseResponse(byte[] data, int frameId) {
         Log.d(TAG, "Processing stop exercise response");
 
         try {
             String result = String.format("Stop Exercise Response (Frame ID: %d): Command sent successfully", frameId);
-            recordLog("【停止运动响应】指令发送成功");
+            recordLog("[Stop Exercise Response] Command sent successfully");
             Log.i(TAG, result);
             return result;
 
@@ -720,16 +722,16 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理时间操作相关的响应 (Cmd = 0x10)
+     * Handle time operation related responses (Cmd = 0x10)
      */
     private static String handleTimeSyncOperations(byte[] data, int frameId, int subcmd) {
         Log.d(TAG, String.format("Handling time operation: Subcmd=0x%02X", subcmd));
 
         switch (subcmd) {
-            case 0x00: // 时间更新响应
+            case 0x00: // Time update response
                 return handleTimeUpdateResponse(data, frameId);
 
-            case 0x02: // 时间校准响应
+            case 0x02: // Time calibration response
                 return handleTimeSyncResponse(data, frameId);
 
             default:
@@ -740,20 +742,20 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理时间更新响应
+     * Handle time update response
      */
     private static String handleTimeUpdateResponse(byte[] data, int frameId) {
         Log.d(TAG, "Processing time update response");
 
         try {
-            // 通知回调处理详细解析
+            // Notify callback for detailed parsing
             if (timeSyncCallback != null) {
                 timeSyncCallback.onTimeUpdateResponse(data);
             } else {
                 Log.w(TAG, "Time sync callback is null");
             }
 
-            // 返回简单的状态信息
+            // Return simple status info
             String result = String.format("Time Update Response (Frame ID: %d): Success", frameId);
             Log.i(TAG, result);
             return result;
@@ -766,21 +768,21 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理时间校准响应
+     * Handle time calibration response
      */
     private static String handleTimeSyncResponse(byte[] data, int frameId) {
         Log.d(TAG, "Processing time sync response");
 
         try {
-            // 通知回调处理详细解析
+            // Notify callback for detailed parsing
             if (timeSyncCallback != null) {
                 timeSyncCallback.onTimeSyncResponse(data);
             } else {
                 Log.w(TAG, "Time sync callback is null");
             }
 
-            // 返回简单的状态信息 - 使用小端序读取
-            if (data.length >= 28) { // 4字节帧头 + 24字节数据
+            // Return simple status info - using little endian read
+            if (data.length >= 28) { // 4-byte frame header + 24-byte data
                 long hostSentTime = readUInt64LE(data, 4);
                 long ringReceivedTime = readUInt64LE(data, 12);
                 long ringUploadTime = readUInt64LE(data, 20);
@@ -803,16 +805,16 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理文件操作相关的响应 (Cmd = 0x36)
+     * Handle file operation related responses (Cmd = 0x36)
      */
     private static String handleFileOperations(byte[] data, int frameId, int subcmd) {
         Log.d(TAG, String.format("Handling file operation: Subcmd=0x%02X", subcmd));
 
         switch (subcmd) {
-            case 0x10: // 文件列表响应
+            case 0x10: // File list response
                 return handleFileListResponse(data, frameId);
 
-            case 0x11: // 文件数据响应
+            case 0x11: // File data response
                 return handleFileDataResponse(data, frameId);
 
             default:
@@ -823,20 +825,20 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理文件列表响应
+     * Handle file list response
      */
     private static String handleFileListResponse(byte[] data, int frameId) {
         Log.d(TAG, "Processing file list response");
 
         try {
-            // 通知回调处理详细解析
+            // Notify callback for detailed parsing
             if (fileResponseCallback != null) {
                 fileResponseCallback.onFileListReceived(data);
             } else {
                 Log.w(TAG, "File response callback is null");
             }
 
-            // 返回简单的状态信息 - 使用小端序读取
+            // Return simple status info - using little endian read
             if (data.length >= 12) {
                 long totalFiles = readUInt32LE(data, 4);
                 long seqNum = readUInt32LE(data, 8);
@@ -859,20 +861,20 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理文件数据响应
+     * Handle file data response
      */
     private static String handleFileDataResponse(byte[] data, int frameId) {
         Log.d(TAG, "Processing file data response");
 
         try {
-            // 通知回调处理详细解析和保存
+            // Notify callback for detailed parsing and saving
             if (fileResponseCallback != null) {
                 fileResponseCallback.onFileDataReceived(data);
             } else {
                 Log.w(TAG, "File response callback is null");
             }
 
-            // 返回简单的状态信息 - 使用小端序读取
+            // Return simple status info - using little endian read
             if (data.length >= 21) {
                 int fileSystemStatus = data[4] & 0xFF;
                 long fileSize = readUInt32LE(data, 5);
@@ -898,18 +900,18 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理实时数据 (Cmd = 0x3C)
+     * Handle real-time data (Cmd = 0x3C)
      */
     private static String handleRealtimeData(byte[] data, int frameId, int subcmd) {
         Log.d(TAG, String.format("Handling realtime data: Subcmd=0x%02X", subcmd));
 
         switch (subcmd) {
-            case 0x01: // 实时数据或时间响应
+            case 0x01: // Real-time data or time response
                 if (data.length == 13) {
-                    // 时间响应包
+                    // Time response packet
                     return handleTimeResponse(data, frameId);
                 } else if (data.length > 14) {
-                    // 实时波形数据包
+                    // Real-time waveform data packet
                     return handleRealtimeWaveformData(data, frameId);
                 } else {
                     String result = "Invalid packet length for subcmd 0x01: " + data.length;
@@ -917,16 +919,16 @@ public class NotificationHandler {
                     return result;
                 }
 
-            case 0x02: // 标准波形响应包
+            case 0x02: // Standard waveform response packet
                 return handleStandardWaveformResponse(data, frameId);
 
-            case 0x03: // 停止响应 (修改：处理新的停止采集响应)
+            case 0x03: // Stop response (Modified: handle new stop collection response)
                 return handleStopCollectionResponse(data, frameId);
 
-            case 0x04: // 新增：处理停止采集响应 (基于文档中的响应格式)
+            case 0x04: // New: Handle stop collection response (based on response format in docs)
                 return handleStopCollectionResponse(data, frameId);
 
-            case 0xFF: // 进度响应包
+            case 0xFF: // Progress response packet
                 return handleProgressResponse(data, frameId);
 
             default:
@@ -937,16 +939,16 @@ public class NotificationHandler {
     }
 
     /**
-     * 修改：处理停止采集响应 (支持新的Subcmd=0x04)
+     * Modified: Handle stop collection response (support new Subcmd=0x04)
      */
     private static String handleStopCollectionResponse(byte[] data, int frameId) {
         Log.d(TAG, "Processing stop collection response");
 
-        // 更新测量状态
+        // Update measurement status
         isMeasuring = false;
         isMeasurementOngoing = false;
 
-        // 停止测量监控计时器
+        // Stop measurement monitor timer
         if (measurementTimer != null) {
             measurementTimer.cancel();
             measurementTimer = null;
@@ -957,20 +959,20 @@ public class NotificationHandler {
         }
 
         String result = String.format("Stop Collection Response (Frame ID: %d): Measurement stopped successfully", frameId);
-        recordLog("【停止采集响应】测量已成功停止");
+        recordLog("[Stop Collection Response] Measurement successfully stopped");
         Log.i(TAG, result);
         return result;
     }
 
     /**
-     * 处理停止响应 (保留原有方法作为兼容)
+     * Handle stop response (keep original method for compatibility)
      */
     private static String handleStopResponse(byte[] data, int frameId) {
         return handleStopCollectionResponse(data, frameId);
     }
 
     /**
-     * 处理时间响应
+     * Handle time response
      */
     private static String handleTimeResponse(byte[] data, int frameId) {
         if (data.length < 13) {
@@ -992,7 +994,7 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理实时波形数据并更新图表
+     * Handle real-time waveform data and update charts
      */
     private static String handleRealtimeWaveformData(byte[] data, int frameId) {
         if (data.length < 14) {
@@ -1002,30 +1004,30 @@ public class NotificationHandler {
         StringBuilder result = new StringBuilder();
         result.append("Realtime Waveform (Frame ID: ").append(frameId).append("):\n");
 
-        // 对齐Python: seq = ppg_led_data[0], data_num = ppg_led_data[1]
-        int seq = data[4] & 0xFF;  // 偏移4字节后的第一个字节
-        int dataNum = data[5] & 0xFF;  // 偏移4字节后的第二个字节
+        // Align with Python: seq = ppg_led_data[0], data_num = ppg_led_data[1]
+        int seq = data[4] & 0xFF;  // First byte after 4-byte offset
+        int dataNum = data[5] & 0xFF;  // Second byte after 4-byte offset
 
         result.append("Sequence: ").append(seq).append(", Data Count: ").append(dataNum).append("\n");
 
-        // 对齐Python: 10字节头部 + data_num * 30字节数据
-        int expectedLength = 4 + 10 + dataNum * 30;  // 4字节帧头 + 10字节数据头 + 数据
+        // Align with Python: 10-byte header + data_num * 30-byte data
+        int expectedLength = 4 + 10 + dataNum * 30;  // 4-byte frame header + 10-byte data header + data
         if (data.length < expectedLength) {
             String error = "Incomplete realtime data. Expected: " + expectedLength + ", Got: " + data.length;
             Log.w(TAG, error);
             return result.append(error).toString();
         }
 
-        // 读取时间戳 (对齐Python: unix_ms = int.from_bytes(ppg_led_data[2:10], byteorder='little'))
-        long frameTimestamp = readUInt64LE(data, 6);  // 偏移4字节帧头 + 2字节(seq+data_num)
+        // Read timestamp (align with Python: unix_ms = int.from_bytes(ppg_led_data[2:10], byteorder='little'))
+        long frameTimestamp = readUInt64LE(data, 6);  // Offset 4-byte frame header + 2 bytes(seq+data_num)
         Log.e("TAG",String.valueOf(frameTimestamp));
         result.append("Frame Time: ").append(formatTimestamp(frameTimestamp)).append("\n");
 
-        // 处理实时数据点并更新图表 - 对齐Python逻辑
+        // Process real-time data points and update charts - align with Python logic
         int validPoints = 0;
-        for (int i = 0; i < dataNum && i < 20; i++) { // 限制最大处理数量
-            // 对齐Python: offset = 10 + group_idx * 30
-            int offset = 4 + 10 + i * 30;  // 4字节帧头 + 10字节数据头 + i * 30
+        for (int i = 0; i < dataNum && i < 20; i++) { // Limit max processing count
+            // Align with Python: offset = 10 + group_idx * 30
+            int offset = 4 + 10 + i * 30;  // 4-byte frame header + 10-byte data header + i * 30
 
             if (offset + 30 <= data.length) {
                 if (parseAndUpdateRealtimeDataPoint(data, offset)) {
@@ -1042,36 +1044,36 @@ public class NotificationHandler {
     }
 
     /**
-     * 解析单个实时数据点并更新图表
+     * Parse single real-time data point and update charts
      */
     private static boolean parseAndUpdateRealtimeDataPoint(byte[] data, int offset) {
         try {
-            // PPG数据 (前12字节，每个4字节)
+            // PPG data (first 12 bytes, 4 bytes each)
             long green = readUInt32LE(data, offset);
             long red = readUInt32LE(data, offset + 4);
             long ir = readUInt32LE(data, offset + 8);
 
-            // 加速度计数据 (12-17字节，每个2字节有符号)
+            // Accelerometer data (12-17 bytes, 2 bytes signed each)
             short accX = readInt16LE(data, offset + 12);
             short accY = readInt16LE(data, offset + 14);
             short accZ = readInt16LE(data, offset + 16);
 
-            // 陀螺仪数据 (18-23字节，每个2字节有符号)
+            // Gyroscope data (18-23 bytes, 2 bytes signed each)
             short gyroX = readInt16LE(data, offset + 18);
             short gyroY = readInt16LE(data, offset + 20);
             short gyroZ = readInt16LE(data, offset + 22);
 
-            // 温度数据 (24-29字节，每个2字节有符号)
+            // Temperature data (24-29 bytes, 2 bytes signed each)
             short temp0 = readInt16LE(data, offset + 24);
             short temp1 = readInt16LE(data, offset + 26);
             short temp2 = readInt16LE(data, offset + 28);
 
-            // 更新实时图表显示
+            // Update real-time chart display
             updateRealtimeCharts(green, red, ir, accX, accY, accZ, gyroX, gyroY, gyroZ, temp0, temp1, temp2);
 
             Log.v(TAG, String.format("Realtime point: G:%d, R:%d, IR:%d, AccX:%d, AccY:%d, AccZ:%d, GyroX:%d, GyroY:%d, GyroZ:%d, T0:%d, T1:%d, T2:%d",
                     green, red, ir, accX, accY, accZ, gyroX, gyroY, gyroZ, temp0, temp1, temp2));
-            recordLog(String.format("实时数据点: Green=%d, Red=%d, IR=%d, AccX=%d, AccY=%d, AccZ=%d, GyroX=%d, GyroY=%d, GyroZ=%d, Temp0=%d, Temp1=%d, Temp2=%d",
+            recordLog(String.format("Realtime data point: Green=%d, Red=%d, IR=%d, AccX=%d, AccY=%d, AccZ=%d, GyroX=%d, GyroY=%d, GyroZ=%d, Temp0=%d, Temp1=%d, Temp2=%d",
                     green, red, ir, accX, accY, accZ, gyroX, gyroY, gyroZ, temp0, temp1, temp2));
 
             return true;
@@ -1082,29 +1084,29 @@ public class NotificationHandler {
     }
 
     /**
-     * 更新实时图表
+     * Update real-time charts
      */
     private static void updateRealtimeCharts(long green, long red, long ir,
                                              short accX, short accY, short accZ,
                                              short gyroX, short gyroY, short gyroZ,
                                              short temp0, short temp1, short temp2) {
         try {
-            // 更新PPG数据图表
+            // Update PPG data charts
             if (plotViewG != null) plotViewG.addValue((int)green);
             if (plotViewR != null) plotViewR.addValue((int)red);
             if (plotViewI != null) plotViewI.addValue((int)ir);
 
-            // 更新加速度图表
+            // Update acceleration charts
             if (plotViewX != null) plotViewX.addValue(accX);
             if (plotViewY != null) plotViewY.addValue(accY);
             if (plotViewZ != null) plotViewZ.addValue(accZ);
 
-            // 新增：更新陀螺仪图表
+            // New: Update gyroscope charts
             if (plotViewGyroX != null) plotViewGyroX.addValue(gyroX);
             if (plotViewGyroY != null) plotViewGyroY.addValue(gyroY);
             if (plotViewGyroZ != null) plotViewGyroZ.addValue(gyroZ);
 
-            // 新增：更新温度图表
+            // New: Update temperature charts
             if (plotViewTemp0 != null) plotViewTemp0.addValue(temp0);
             if (plotViewTemp1 != null) plotViewTemp1.addValue(temp1);
             if (plotViewTemp2 != null) plotViewTemp2.addValue(temp2);
@@ -1115,7 +1117,7 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理标准波形响应
+     * Handle standard waveform response
      */
     private static String handleStandardWaveformResponse(byte[] data, int frameId) {
         if (data.length < 6) {
@@ -1141,7 +1143,7 @@ public class NotificationHandler {
         Log.e("TAG",String.valueOf(frameTimestamp));
         result.append("Frame Time: ").append(formatTimestamp(frameTimestamp)).append("\n");
 
-        // 处理数据点
+        // Process data points
         int validPoints = 0;
         for (int i = 0; i < dataNum; i++) {
             int offset = 4 + 10 + i * 30;
@@ -1157,7 +1159,7 @@ public class NotificationHandler {
     }
 
     /**
-     * 处理进度响应
+     * Handle progress response
      */
     private static String handleProgressResponse(byte[] data, int frameId) {
         if (data.length < 5) {
@@ -1166,7 +1168,7 @@ public class NotificationHandler {
 
         int progress = data[4] & 0xFF;
 
-        // 如果是运动模式，通知运动进度
+        // If in exercise mode, notify exercise progress
         if (isExercising && exerciseStatusCallback != null) {
             int totalSegments = exerciseConfig.getTotalSegments();
             exerciseStatusCallback.onExerciseProgress(currentSegment, totalSegments, progress);
@@ -1178,7 +1180,7 @@ public class NotificationHandler {
     }
 
     /**
-     * 格式化时间戳
+     * Format timestamp
      */
     private static String formatTimestamp(long timestampMillis) {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd.HH:mm:ss.SSS", Locale.getDefault());
@@ -1186,7 +1188,7 @@ public class NotificationHandler {
     }
 
     /**
-     * 清空所有图表数据
+     * Clear all chart data
      */
     public static void clearAllCharts() {
         try {
@@ -1203,7 +1205,7 @@ public class NotificationHandler {
     }
 
     /**
-     * 获取当前是否有有效的图表连接
+     * Get whether there are valid chart connections
      */
     public static boolean hasValidCharts() {
         return plotViewG != null || plotViewI != null || plotViewR != null ||
