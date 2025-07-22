@@ -28,7 +28,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
+        <service
+            android:name=".utils.BLEService"
+            android:enabled="true"
+            android:exported="false" /> <!-- 如果仅内部使用设为 false -->
         <activity android:name=".activity.RingSettingsActivity"/>
 
 

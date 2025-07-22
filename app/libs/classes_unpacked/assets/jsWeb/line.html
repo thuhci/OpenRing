@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>静息心率</title>
+    <!-- 引入 echarts.js -->
+    <script src="echarts.min.js"></script>
+</head>
+<body>
+<!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+<div id="main" style="width: 100%;height:180px;"></div>
+<script type="text/javascript">
+			var chartDom=null;
+			 var myChart=null;
+			setTimeout(function(){
+			chartDom = document.getElementById('main');
+			myChart = echarts.init(chartDom);
+			var option;
+						                                        
+option = {
+  tooltip: {
+    trigger: 'axis',
+    axisPointer: {
+      type: 'cross'
+    }
+  },
+xAxis: { data: ['00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00'],
+			    type: 'category',
+			    boundaryGap: false,
+			    axisTick: {
+			        show: false,    // 是否显示坐标轴刻度
+			    },
+			    axisLine: {
+			        show: true,    // 是否显示坐标轴轴线
+			        lineStyle: {
+			            color: '#DBDBE0',    // 坐标轴线线的颜色
+			            width: '1',    // 坐标轴线线宽
+			            type: 'solid',     // 坐标轴线线的类型（'solid'，实线类型；'dashed'，虚线类型；'dotted',点状类型）
+			        },
+
+			    } ,
+			    axisLabel: {//x轴文字的配置
+			                show: true,
+			                textStyle: {
+			                    color: "#808091",
+			                }
+			            },
+			  },
+			  yAxis: {
+			      splitLine :{    //网格线
+			        lineStyle:{
+			            type:'dashed'    //设置网格线类型 dotted：虚线   solid:实线
+			        },
+			        show:true //隐藏或显示
+			    },
+			     axisLabel: {//x轴文字的配置
+			                show: true,
+			                textStyle: {
+			                    color: "#808091",
+			                }
+			            },
+			    type: 'value',
+			    boundaryGap: [0, '50%']
+			  },
+  visualMap: {
+        seriesIndex: 0,
+        type: 'piecewise',
+    show: false,
+    dimension: 0,
+    pieces: [
+      {
+        lte: 3,
+        color: '#0083FF'
+      },
+      {
+        gt: 3,
+        lte: 4,
+        color: 'red'
+      },
+      {
+        gt: 4,
+        color: '#0083FF'
+      }
+    ]
+  },
+  series: [
+    {
+       symbolSize: 0,
+      type: 'line',
+      smooth: false,
+      // prettier-ignore
+      data: [300, 2, 250,90, 380, 36, 400],
+    }
+  ]
+};
+						                                        
+                option && myChart.setOption(option);
+						                                        
+            },0);
+            function refreshData( xAxis,yAxis){
+                //刷新数据
+                myChart.setOption({
+                    xAxis: {
+                        data: xAxis
+                    },
+                    series: [
+                        {
+                            data: yAxis
+                        }
+                    ]
+                });
+						                                        
+            }
+		</script>
+</body>
+</html>

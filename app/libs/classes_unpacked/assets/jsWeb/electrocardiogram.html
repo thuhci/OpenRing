@@ -1,0 +1,248 @@
+<!--
+	此示例下载自 https://echarts.apache.org/examples/zh/editor.html?c=line-function
+-->
+<!DOCTYPE html>
+<html lang="en" style="height: 100%;width: 100%">
+
+<head>
+    <meta charset="utf-8">
+</head>
+
+<body style="height: 100%;width: 100%; margin: 0">
+<div style="    height: 100%;
+    width: 100%;
+    position: relative;
+    display: flex;">
+    <div id="container" style="height: 100%;width: 100%;"></div>
+    <img id="img" style="margin: 0px;  position: absolute;" src="line_instruction_10.png"
+         height="17%"></label>
+</div>
+
+
+<script type="text/javascript"
+        src="https://registry.npmmirror.com/echarts/5.5.1/files/dist/echarts.min.js"></script>
+
+<!-- Uncomment this line if you want to dataTool extension
+<script type="text/javascript" src="https://registry.npmmirror.com/echarts/5.5.1/files/dist/extension/dataTool.min.js"></script>
+-->
+<!-- Uncomment this line if you want to use gl extension
+<script type="text/javascript" src="https://registry.npmmirror.com/echarts-gl/2/files/dist/echarts-gl.min.js"></script>
+-->
+<!-- Uncomment this line if you want to echarts-stat extension
+<script type="text/javascript" src="https://registry.npmmirror.com/echarts-stat/latest/files/dist/ecStat.min.js"></script>
+-->
+<!-- Uncomment this line if you want to echarts-graph-modularity extension
+<script type="text/javascript" src="https://registry.npmmirror.com/echarts-graph-modularity/2/files/dist/echarts-graph-modularity.min.js"></script>
+-->
+<!-- Uncomment this line if you want to use map
+<script type="text/javascript" src="https://registry.npmmirror.com/echarts/4.9.0/files/map/js/world.js"></script>
+-->
+<!-- Uncomment these two lines if you want to use bmap extension
+<script type="text/javascript" src="https://api.map.baidu.com/api?v=3.0&ak=YOUR_API_KEY"></script>
+<script type="text/javascript" src="https://registry.npmmirror.com/echarts/5.5.1/files/dist/extension/bmap.min.js"></script>
+-->
+
+<script type="text/javascript">
+    var dom = document.getElementById('container');
+       var img = document.getElementById('img');
+
+       var myChart = echarts.init(dom, null, {
+           renderer: 'canvas',
+           useDirtyRect: false
+       });
+
+       function func(x) {
+           x /= 10;
+           return Math.sin(x) * Math.cos(x * 2 + 1) * Math.sin(x * 3 + 2) * 50;
+       }
+
+       function generateData() {
+           let data = [];
+           for (let i = 0; i <= 50; i += 1) {
+               data.push([i, func(Math.random() * 50)]);
+           }
+           return data;
+       }
+       var mydata = []
+
+       // 设置图表配置和数据
+       var option = {
+           grid: {
+              top: 0,
+                left: 0,
+                right: 1,
+                bottom:1,
+            },
+           xAxis: {
+
+               minorTick: {
+                   show: false
+               },
+               minorSplitLine: {
+                   show: true,
+                   lineStyle: {
+                       color: '#C96E6E',
+                       width: 0.5,
+                   }
+               },
+               min: 0,
+               max: 450,
+               interval: 50,
+               axisLine: {
+                   show: false,
+                   onZero: false,
+
+               },
+               axisLabel: {
+                   show: false,
+               },
+               axisTick: {
+                   show: false
+               },
+               splitLine: {           // 分隔线
+                   show: true,        // 默认显示，属性show控制显示与否
+                   // onGap: null,
+                   lineStyle: {       // 属性lineStyle（详见lineStyle）控制线条样式
+                       color: ['#C42727'],
+                       width: 0.8,
+                       type: 'solid'
+                   }
+               },
+           },
+           yAxis: {
+               animation:false,
+               min: -15,
+               max: 15,
+               interval: 5,
+               minorTick: {
+                   show: false
+               },
+               minorSplitLine: {
+                   show: true,
+                   lineStyle: {
+                       color: '#C96E6E',
+                       width: 0.5,
+                   }
+               },
+               splitLine: {           // 分隔线
+                   show: true,        // 默认显示，属性show控制显示与否
+                   // onGap: null,
+                   lineStyle: {       // 属性lineStyle（详见lineStyle）控制线条样式
+                       color: ['#C42727'],
+                       width: 0.8,
+                       type: 'solid'
+                   }
+               },
+               axisTick: {
+                   show: false
+               },
+
+               axisLine: {
+                   show: false,
+                   onZero: false,
+
+               },
+               axisLabel: {
+                   show: false,
+
+               }
+           },
+           series: [  // 图表类型和数据 (每一个对象是一个图表)
+               {
+                   name: "ECG信号",  // 图表系列名
+                   type: "line",   // 图表类型 line折线图
+                   data: mydata,  // 图表数据,
+
+                   lineStyle: {
+                       color: '#000000', // 线条颜色
+                       width: 1.2, // 线条宽度
+
+                   },
+                   symbol: "none",
+
+               }
+           ]
+       }
+       myChart.setOption(option)
+
+      var index = 0
+        function updateDatas(eleDatas) {
+            console.log("updateDatas",eleDatas)
+            var datas = [];
+            const array = eleDatas.split(",")
+            for(var i = 0;i<array.length;i++){
+               datas.push([i, array[i]])
+
+            }
+            console.log("datas",datas)
+            myChart.setOption({
+                series: [{
+                 smooth: true,
+                    data: (function () {
+                        var data = myChart.getOption().series[0].data;
+<!--                        if (index == 150) {-->
+<!--                            data.length = 0-->
+<!--                            index = 0-->
+<!--                        }-->
+<!--                        if(eleDatas>50){-->
+<!--                            eleDatas=50-->
+<!--                        }-->
+<!--                        if(eleDatas< -50){-->
+<!--                            eleDatas= -50-->
+<!--                        }-->
+                        data= datas;
+                        console.log(index+","+eleDatas)
+                        return data;
+                    })()
+                }]
+            });
+            index++;
+        }
+   function updateScale(scaleRatio){
+            console.log("scaleRatio", scaleRatio)
+
+            img.style.height = scaleRatio*100 +"%"
+              if(scaleRatio*100 < 5){
+              img.src = "line_instruction_2.png"
+            }else  if(scaleRatio*100 < 10){
+              img.src = "line_instruction_5.png"
+            }else{
+
+              img.src = "line_instruction_20.png"
+            }
+
+
+
+        }
+
+     function clearData(){
+           index = 0
+            myChart.setOption({
+                series: [{
+                    data: (function () {
+                        var data = myChart.getOption().series[0].data;
+                         data.length = 0
+
+                        return data;
+                    })()
+                }]
+            });
+        }
+ function updateSpeed(speed) {
+
+            myChart.setOption({
+
+                xAxis: {
+                  animation:false,
+                    min: 0,
+                    max: 450*speed,
+                    interval: 50*speed,
+
+                },
+            });
+}
+
+</script>
+</body>
+
+</html>

@@ -2,6 +2,7 @@ package com.tsinghua.openring.activity;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -31,8 +32,10 @@ import com.lm.sdk.inter.IResponseListener;
 import com.lm.sdk.inter.ICustomizeCmdListener;
 import com.lm.sdk.mode.SystemControlBean;
 import com.lm.sdk.utils.BLEUtils;
+import com.lm.sdk.utils.GlobalParameterUtils;
 import com.tsinghua.openring.R;
 import com.tsinghua.openring.PlotView;
+import com.tsinghua.openring.utils.BLEService;
 import com.tsinghua.openring.utils.NotificationHandler;
 
 import java.io.BufferedWriter;
@@ -241,7 +244,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         LmAPI.init(getApplication());
         LmAPI.setDebug(true);
         LmAPI.addWLSCmdListener(this, this);
-
         initializeViews();
         setupBottomNavigation();
         setupClickListeners();
@@ -1316,7 +1318,22 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             android.bluetooth.BluetoothAdapter bluetoothAdapter = android.bluetooth.BluetoothAdapter.getDefaultAdapter();
             android.bluetooth.BluetoothDevice device = bluetoothAdapter.getRemoteDevice(savedMacAddress);
             if (device != null) {
-                BLEUtils.connectLockByBLE(this, device);
+
+                GlobalParameterUtils.getInstance().setDevice(device);
+                BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                if (mBluetoothAdapter != null) {
+                    if (mBluetoothAdapter.isEnabled()) {
+                        if (device != null) {
+                            Intent mBleService = new Intent(this, BLEService.class);
+                            mBleService.putExtra("CONNECT_DEVICE", device);
+                            mBleService.putExtra("BLUETOOTH_HID_MODE", false);
+                            this.startService(mBleService);
+
+                        }
+                    } else {
+                        mBluetoothAdapter.enable();
+                    }
+                }
                 macAddress = savedMacAddress;
             } else {
                 Toast.makeText(this, "Invalid MAC address", Toast.LENGTH_SHORT).show();
@@ -1501,10 +1518,62 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                     } else if (subcmd == 0x13){
                         recordLog("Identified as format file system response");
                     }
+                }else if(cmd == 0x12){
+
+                    recordLog("Identified as battery level response");
+                    handleBatteryLevelResponse(data);
+
                 }
+
             }
         } catch (Exception e) {
             recordLog("Failed to handle custom command response: " + e.getMessage());
+        }
+    }
+    private void handleBatteryLevelResponse(byte[] data) {
+        try {
+            if (data == null || data.length < 5) {
+                recordLog("Battery level response data length insufficient, expected at least 5 bytes, got: " +
+                        (data == null ? "null" : data.length));
+                return;
+            }
+
+            // 解析响应数据
+            int frameType = data[0] & 0xFF;  // 0x00
+            int frameId = data[1] & 0xFF;    // 请求ID
+            int cmd = data[2] & 0xFF;        // 0x12
+            int subcmd = data[3] & 0xFF;     // 0x00
+            int batteryLevel = data[4] & 0xFF; // 电池电量百分比
+
+            recordLog(String.format("Battery response details: FrameType=0x%02X, FrameID=0x%02X, Cmd=0x%02X, Subcmd=0x%02X, Battery=%d%%",
+                    frameType, frameId, cmd, subcmd, batteryLevel));
+
+            // 验证响应格式
+            if (frameType != 0x00 || cmd != 0x12 || subcmd != 0x00) {
+                recordLog("Invalid battery level response format");
+                return;
+            }
+
+            recordLog("Battery level: " + batteryLevel + "%");
+
+            // 更新UI显示
+            mainHandler.post(() -> {
+                batteryText.setText(batteryLevel + "%");
+
+                // 可选：根据电量设置不同颜色
+                if (batteryLevel <= 20) {
+                    batteryText.setTextColor(Color.RED);
+                }else if (batteryLevel <= 50) {
+                    batteryText.setTextColor(Color.YELLOW);
+                } else {
+                    batteryText.setTextColor(Color.GREEN);
+                }
+            });
+
+
+        } catch (Exception e) {
+            recordLog("Failed to handle battery level response: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -1726,9 +1795,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             BLEUtils.setGetToken(true);
             recordLog("Connection successful, status code is 7");
 
-            // Delayed device info retrieval
+            String hexCommand = String.format("00%02X1200", generateRandomFrameId());
+            byte[] data = hexStringToByteArray(hexCommand);
             mainHandler.postDelayed(() -> {
-                LmAPI.GET_BATTERY((byte) 0x00);
+                LmAPI.CUSTOMIZE_CMD(data,customizeCmdListener);
             }, 1000);
 
             mainHandler.postDelayed(() -> {
@@ -1749,8 +1819,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         recordLog("Bluetooth connection failed, status code: " + i);
         connectionStatus = i;
         mainHandler.post(() -> {
-            connectButton.setText("Connect");
-            connectButton.setBackgroundColor(Color.parseColor("#2196F3"));
+
+            isConnected = false;
+            updateConnectionStatus(false);
+
             Toast.makeText(this, "Connection failed", Toast.LENGTH_SHORT).show();
         });
     }
@@ -1781,13 +1853,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     @Override
     public void battery(byte b, byte b1) {
-        if (b == 0) {
-            batteryLevel = b1 & 0xFF;
-            recordLog("Battery level: " + batteryLevel);
-            mainHandler.post(() -> {
-                batteryText.setText(batteryLevel + "%");
-            });
-        }
+
     }
 
     @Override
