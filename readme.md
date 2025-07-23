@@ -13,7 +13,7 @@ The project requires:
 The following libraries are used in the OpenRing project and will be automatically downloaded when building:
 
 #### Bluetooth and Connectivity
-- `ChipletRing1.0.81.aar` - T-Ring SDK for device communication
+- `ChipletRing1.0.81.aar` - SDK for device communication
 - Custom BLE utilities for ring connectivity
 
 #### Data Processing and Visualization
