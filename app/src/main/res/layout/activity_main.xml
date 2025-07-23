@@ -1033,6 +1033,14 @@
                             android:textSize="14sp"
                             android:background="@drawable/button_orange_bg"
                             android:textColor="@android:color/white" />
+                        <Button
+                            android:id="@+id/downloadAll"
+                            android:layout_width="match_parent"
+                            android:layout_height="100dp"
+                            android:text="Download All"
+                            android:textSize="14sp"
+                            android:background="@drawable/button_orange_bg"
+                            android:textColor="@android:color/white" />
 
                     </LinearLayout>
 

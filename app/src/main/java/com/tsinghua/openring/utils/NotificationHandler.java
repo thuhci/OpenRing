@@ -132,7 +132,7 @@ public class NotificationHandler {
     }
 
     // Add internal recordLog method
-    private static void recordLog(String message) {
+    static void recordLog(String message) {
         // Output to Android Log (maintain original functionality)
         Log.d(TAG, message);
 
@@ -482,7 +482,6 @@ public class NotificationHandler {
         return command;
     }
 
-    // New: Build stop collection command (based on new command format in docs)
     private static byte[] buildStopCollectionCommand() {
         // Heart rate stop collection command format: Frame Type(1) + Frame ID(1) + Cmd(1) + Subcmd(1)
         // Request command: 00[FrameID]3C04
@@ -882,7 +881,6 @@ public class NotificationHandler {
 
                 String result = String.format("File Data Response (Frame ID: %d): Status=%d, Size=%d, Packet=%d/%d, Length=%d",
                         frameId, fileSystemStatus, fileSize, currentPacket, totalPackets, currentPacketLength);
-                Log.i(TAG, result);
                 return result;
             } else {
                 String result = "Invalid file data response length: " + data.length;

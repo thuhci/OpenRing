@@ -13,6 +13,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Environment;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -28,8 +29,11 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.lm.sdk.LmAPI;
+import com.lm.sdk.LmAPILite;
+import com.lm.sdk.inter.IHistoryListener;
 import com.lm.sdk.inter.IResponseListener;
 import com.lm.sdk.inter.ICustomizeCmdListener;
+import com.lm.sdk.mode.HistoryDataBean;
 import com.lm.sdk.mode.SystemControlBean;
 import com.lm.sdk.utils.BLEUtils;
 import com.lm.sdk.utils.GlobalParameterUtils;
@@ -45,9 +49,11 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -68,6 +74,8 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     private Button getFileListButton;
     private Button downloadSelectedButton;
+    private Button downloadAllButton;
+
     private Button formatFileSystemBtn;
 
     private EditText totalDurationInput;
@@ -242,6 +250,28 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
         // Initialize SDK
         LmAPI.init(getApplication());
+        LmAPI.READ_HISTORY_AUTO(new IHistoryListener() {
+            @Override
+            public void error(int code) {
+
+            }
+
+            @Override
+            public void success() {
+
+            }
+
+            @Override
+            public void progress(double value, HistoryDataBean bean) {
+                // 处理进度，比如更新 UI
+                Log.d("HistoryListener", "progress: " + value);
+            }
+
+            @Override
+            public void noNewDataAvailable() {
+
+            }
+        });
         LmAPI.setDebug(true);
         LmAPI.addWLSCmdListener(this, this);
         initializeViews();
@@ -291,6 +321,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         calibrateButton = findViewById(R.id.calibrateButton);
         getFileListButton = findViewById(R.id.getFileListButton);
         downloadSelectedButton = findViewById(R.id.downloadSelectedButton);
+        downloadAllButton = findViewById(R.id.downloadAll);
         formatFileSystemBtn = findViewById(R.id.formatFileSystemButton);
 
         // Input fields
@@ -499,6 +530,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         calibrateButton.setOnClickListener(v -> calibrateTime());
         getFileListButton.setOnClickListener(v -> getFileList());
         downloadSelectedButton.setOnClickListener(v -> downloadSelectedFiles());
+        downloadAllButton.setOnClickListener(v-> downloadAllFiles());
         formatFileSystemBtn.setOnClickListener(v-> formatFileSystem());
         // Online measurement buttons
         if (startMeasurementButton != null) {
@@ -628,6 +660,8 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
     }
 
+    private Set<String> processedFiles = new HashSet<>();
+
     private void handleFileListResponse(byte[] data) {
         try {
             if (data == null || data.length < 12) {
@@ -650,6 +684,15 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 fileName = fileName.replace("\0", "");
 
                 if (!fileName.isEmpty()) {
+                    // 创建文件唯一标识符（文件名+大小）
+                    String fileKey = fileName + "|" + fileSize;
+
+                    if (processedFiles.contains(fileKey)) {
+                        recordLog("Duplicate file detected: " + fileName + ", skipping");
+                        return;
+                    }
+
+                    processedFiles.add(fileKey);
                     FileInfo fileInfo = new FileInfo(fileName, fileSize);
                     fileList.add(fileInfo);
                     recordLog("Add file: " + fileName + " (" + fileInfo.getFormattedSize() + ")");
@@ -660,7 +703,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 setupFileList();
                 getFileListButton.setText("Get File List");
                 getFileListButton.setEnabled(true);
-
             });
 
         } catch (Exception e) {
@@ -742,12 +784,12 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                         short temper1 = readInt16LE(data, dataOffset + 26);
                         short temper2 = readInt16LE(data, dataOffset + 28);
 
-                        String logMsg = String.format("green:%d red:%d ir:%d " +
-                                        "acc_x:%d acc_y:%d acc_z:%d " +
-                                        "gyro_x:%d gyro_y:%d gyro_z:%d " +
-                                        "temper0:%d temper1:%d temper2:%d",
-                                green, red, ir, accX, accY, accZ, gyroX, gyroY, gyroZ, temper0, temper1, temper2);
-                        recordLog(logMsg);
+//                        String logMsg = String.format("green:%d red:%d ir:%d " +
+//                                        "acc_x:%d acc_y:%d acc_z:%d " +
+//                                        "gyro_x:%d gyro_y:%d gyro_z:%d " +
+//                                        "temper0:%d temper1:%d temper2:%d",
+//                                green, red, ir, accX, accY, accZ, gyroX, gyroY, gyroZ, temper0, temper1, temper2);
+//                        recordLog(logMsg);
                     }
                 }
 
@@ -788,7 +830,17 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         });
     }
 
+    private void downloadAllFiles(){
+        try {
+            String hexCommand = String.format("00%02X361A01", generateRandomFrameId());
 
+            byte[] commandData = hexStringToByteArray(hexCommand);
+            LmAPI.CUSTOMIZE_CMD(commandData, customizeCmdListener);
+
+        } catch (Exception e) {
+            recordLog("Download file failed: " + e.getMessage());
+        }
+    }
     private void downloadSelectedFiles() {
         if (selectedFiles.isEmpty()) {
             Toast.makeText(this, "Please select files to download first", Toast.LENGTH_SHORT).show();
@@ -806,7 +858,18 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         receivedPackets = 0;
 
         recordLog(String.format("[Start Batch Download] Selected files: %d", selectedFiles.size()));
-
+//        try {
+//            String hexCommand = String.format("00%02X361A01", generateRandomFrameId());
+//
+//            byte[] commandData = hexStringToByteArray(sb.toString());
+//            LmAPI.CUSTOMIZE_CMD(commandData, customizeCmdListener);
+//
+//        } catch (Exception e) {
+//            recordLog("Download file failed: " + e.getMessage());
+//            // 如果发送命令失败，跳过这个文件继续下一个
+//            currentDownloadIndex++;
+//            mainHandler.postDelayed(this::downloadNextSelectedFile, 1000);
+//        }
         // 更新按钮显示初始状态
         updateDownloadButtonProgress(0, 0, "Initializing...");
 
@@ -892,7 +955,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
         } catch (Exception e) {
             recordLog("Download file failed: " + e.getMessage());
-            // 如果发送命令失败，跳过这个文件继续下一个
             currentDownloadIndex++;
             mainHandler.postDelayed(this::downloadNextSelectedFile, 1000);
         }
@@ -1726,7 +1788,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 ((data[offset + 3] & 0xFF) << 24);
     }
     public void formatFileSystem() {
-        // Show confirmation dialog
         new android.app.AlertDialog.Builder(this)
                 .setTitle("⚠️ Format File System")
                 .setMessage("Warning: This operation will permanently delete all file data in the device!\n\nAre you sure you want to continue with formatting?")
@@ -1868,13 +1929,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     @Override
     public void saveData(String s) {
-        // Handle real-time data here
         String msg = NotificationHandler.handleNotification(hexStringToByteArray(s));
         recordLog("Received data: " + msg);
 
-        // If connection successful but device name is empty, try to get device name
         if (connectionStatus == 7 && deviceName.isEmpty()) {
-            // Get device name from SharedPreferences or use default name
             SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
             deviceName = prefs.getString("device_name", "Ring Device");
             if (deviceName.isEmpty()) {

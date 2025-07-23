@@ -5,6 +5,8 @@
 
 package com.tsinghua.openring.utils;
 
+import static com.tsinghua.openring.utils.NotificationHandler.recordLog;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -41,6 +43,7 @@ import com.lm.sdk.utils.ImageSaverUtil;
 import com.lm.sdk.utils.Logger;
 import com.lm.sdk.utils.StringUtils;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.UUID;
 
@@ -262,7 +265,6 @@ public class BLEService extends Service {
 
             if (gatt != null) {
                 super.onServicesDiscovered(gatt, status);
-
             }
 
         }
@@ -272,6 +274,7 @@ public class BLEService extends Service {
             if (BLEUtils.isSupportElectrocardiogram() && !BLEService.alreadyWriteECG) {
                 BLEService.this.enableNotification(true, BLEService.mBluetoothGatt, BLEService.cmdRespondCharacterECG, true);
             }
+            gatt.requestMtu(512);
 
         }
 
