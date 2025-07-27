@@ -19,6 +19,11 @@ public class NotificationHandler {
     // File operation callback interface
     public interface FileResponseCallback {
         void onFileListReceived(byte[] data);
+        void onFileInfoReceived(byte[] data);
+        void onFileDownloadEndReceived(byte[] data);
+
+        void onDownloadStatusReceived(byte[] data);
+
         void onFileDataReceived(byte[] data);
     }
 
@@ -175,7 +180,7 @@ public class NotificationHandler {
 
     // New: Simplified method to set measurement time
     public static void setMeasurementTime(int timeSeconds) {
-        measurementConfig.collectTime = Math.max(1, Math.min(3600, timeSeconds));
+        measurementConfig.collectTime = timeSeconds;
         Log.d(TAG, "Measurement time set to: " + measurementConfig.collectTime + " seconds");
     }
 
@@ -633,17 +638,12 @@ public class NotificationHandler {
         int cmd = data[2] & 0xFF;
         int subcmd = data[3] & 0xFF;
 
-        Log.d(TAG, String.format("Received data: FrameType=0x%02X, FrameID=0x%02X, Cmd=0x%02X, Subcmd=0x%02X, Length=%d",
-                frameType, frameId, cmd, subcmd, data.length));
 
         // Time calibration handling (Cmd = 0x10)
         if (cmd == 0x10) {
             return handleTimeSyncOperations(data, frameId, subcmd);
         }
         // File operation handling (Cmd = 0x36)
-        else if (cmd == 0x36) {
-            return handleFileOperations(data, frameId, subcmd);
-        }
         // Exercise command handling (Cmd = 0x38)
         else if (cmd == 0x38) {
             return handleExerciseOperations(data, frameId, subcmd);
@@ -652,11 +652,13 @@ public class NotificationHandler {
         else if (cmd == 0x3C) {
             return handleRealtimeData(data, frameId, subcmd);
         }
+        else if (cmd == 0x36){
+            return handleFileOperations(data,frameId,subcmd);
+        }
         // Other commands
         else {
-            String result = "Unknown command: 0x" + String.format("%02X", cmd);
-            Log.w(TAG, result);
-            return result;
+
+            return "Unknown command";
         }
     }
 
@@ -807,93 +809,53 @@ public class NotificationHandler {
     private static String handleFileOperations(byte[] data, int frameId, int subcmd) {
         Log.d(TAG, String.format("Handling file operation: Subcmd=0x%02X", subcmd));
 
+
         switch (subcmd) {
             case 0x10: // File list response
-                return handleFileListResponse(data, frameId);
-
+                if (fileResponseCallback != null) {
+                    fileResponseCallback.onFileListReceived(data);
+                } else {
+                    Log.w(TAG, "File response callback is null");
+                }
+                break;
             case 0x11: // File data response
-                return handleFileDataResponse(data, frameId);
+                if (fileResponseCallback != null) {
+                    fileResponseCallback.onFileDataReceived(data);
+                } else {
+                    Log.w(TAG, "File response callback is null");
+                }
+                break;
 
+            case 0x1A:
+                if (fileResponseCallback != null) {
+                    fileResponseCallback.onDownloadStatusReceived(data);
+                } else {
+                    Log.w(TAG, "File response callback is null");
+                }
+                break;
+
+            case 0x1B:
+                if (fileResponseCallback != null) {
+                    fileResponseCallback.onFileInfoReceived(data);
+                } else {
+                    Log.w(TAG, "File response callback is null");
+                }
+                break;
+            case 0x1D:
+                if (fileResponseCallback != null) {
+                    fileResponseCallback.onFileDownloadEndReceived(data);
+                } else {
+                    Log.w(TAG, "File response callback is null");
+                }
+                break;
             default:
                 String result = "Unknown file operation subcmd: 0x" + String.format("%02X", subcmd);
                 Log.w(TAG, result);
                 return result;
         }
+        return "File operation handled successfully";
     }
 
-    /**
-     * Handle file list response
-     */
-    private static String handleFileListResponse(byte[] data, int frameId) {
-        Log.d(TAG, "Processing file list response");
-
-        try {
-            // Notify callback for detailed parsing
-            if (fileResponseCallback != null) {
-                fileResponseCallback.onFileListReceived(data);
-            } else {
-                Log.w(TAG, "File response callback is null");
-            }
-
-            // Return simple status info - using little endian read
-            if (data.length >= 12) {
-                long totalFiles = readUInt32LE(data, 4);
-                long seqNum = readUInt32LE(data, 8);
-
-                String result = String.format("File List Response (Frame ID: %d): Total=%d, Seq=%d",
-                        frameId, totalFiles, seqNum);
-                Log.i(TAG, result);
-                return result;
-            } else {
-                String result = "Invalid file list response length: " + data.length;
-                Log.e(TAG, result);
-                return result;
-            }
-
-        } catch (Exception e) {
-            String result = "Error processing file list: " + e.getMessage();
-            Log.e(TAG, result, e);
-            return result;
-        }
-    }
-
-    /**
-     * Handle file data response
-     */
-    private static String handleFileDataResponse(byte[] data, int frameId) {
-        Log.d(TAG, "Processing file data response");
-
-        try {
-            // Notify callback for detailed parsing and saving
-            if (fileResponseCallback != null) {
-                fileResponseCallback.onFileDataReceived(data);
-            } else {
-                Log.w(TAG, "File response callback is null");
-            }
-
-            // Return simple status info - using little endian read
-            if (data.length >= 21) {
-                int fileSystemStatus = data[4] & 0xFF;
-                long fileSize = readUInt32LE(data, 5);
-                long totalPackets = readUInt32LE(data, 9);
-                long currentPacket = readUInt32LE(data, 13);
-                long currentPacketLength = readUInt32LE(data, 17);
-
-                String result = String.format("File Data Response (Frame ID: %d): Status=%d, Size=%d, Packet=%d/%d, Length=%d",
-                        frameId, fileSystemStatus, fileSize, currentPacket, totalPackets, currentPacketLength);
-                return result;
-            } else {
-                String result = "Invalid file data response length: " + data.length;
-                Log.e(TAG, result);
-                return result;
-            }
-
-        } catch (Exception e) {
-            String result = "Error processing file data: " + e.getMessage();
-            Log.e(TAG, result, e);
-            return result;
-        }
-    }
 
     /**
      * Handle real-time data (Cmd = 0x3C)

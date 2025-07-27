@@ -48,6 +48,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -470,10 +471,21 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             public void onFileListReceived(byte[] data) {
                 handleFileListResponse(data);
             }
-
+            @Override
+            public void onFileInfoReceived(byte[] data){
+                handleBatchFileInfoPush(data);
+            }
+            @Override
+            public void onDownloadStatusReceived(byte[] data){
+                handleBatchDownloadStatusResponse(data);
+            }
             @Override
             public void onFileDataReceived(byte[] data) {
                 handleFileDataResponse(data);
+            }
+            @Override
+            public void onFileDownloadEndReceived(byte[] data){
+                handleFileDownloadEndResponse(data);
             }
         });
 
@@ -686,7 +698,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 if (!fileName.isEmpty()) {
                     // 创建文件唯一标识符（文件名+大小）
                     String fileKey = fileName + "|" + fileSize;
-
                     if (processedFiles.contains(fileKey)) {
                         recordLog("Duplicate file detected: " + fileName + ", skipping");
                         return;
@@ -716,6 +727,9 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     private void handleFileDataResponse(byte[] data) {
         try {
+            if(handleBatchFileDataPush(data)){
+                return;
+            }
             if (data.length < 4) {
                 recordLog("File data response length insufficient");
                 return;
@@ -784,12 +798,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                         short temper1 = readInt16LE(data, dataOffset + 26);
                         short temper2 = readInt16LE(data, dataOffset + 28);
 
-//                        String logMsg = String.format("green:%d red:%d ir:%d " +
-//                                        "acc_x:%d acc_y:%d acc_z:%d " +
-//                                        "gyro_x:%d gyro_y:%d gyro_z:%d " +
-//                                        "temper0:%d temper1:%d temper2:%d",
-//                                green, red, ir, accX, accY, accZ, gyroX, gyroY, gyroZ, temper0, temper1, temper2);
-//                        recordLog(logMsg);
                     }
                 }
 
@@ -858,18 +866,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         receivedPackets = 0;
 
         recordLog(String.format("[Start Batch Download] Selected files: %d", selectedFiles.size()));
-//        try {
-//            String hexCommand = String.format("00%02X361A01", generateRandomFrameId());
 //
-//            byte[] commandData = hexStringToByteArray(sb.toString());
-//            LmAPI.CUSTOMIZE_CMD(commandData, customizeCmdListener);
-//
-//        } catch (Exception e) {
-//            recordLog("Download file failed: " + e.getMessage());
-//            // 如果发送命令失败，跳过这个文件继续下一个
-//            currentDownloadIndex++;
-//            mainHandler.postDelayed(this::downloadNextSelectedFile, 1000);
-//        }
         // 更新按钮显示初始状态
         updateDownloadButtonProgress(0, 0, "Initializing...");
 
@@ -1245,8 +1242,8 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
         try {
             int measurementTime = Integer.parseInt(timeStr);
-            if (measurementTime < 1 || measurementTime > 3600) {
-                Toast.makeText(this, "Measurement time should be between 1-3600 seconds", Toast.LENGTH_SHORT).show();
+            if (measurementTime > 255) {
+                Toast.makeText(this, "Measurement time should be between 0-255 seconds", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -1573,23 +1570,321 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 } else if (cmd == 0x36) {
                     if (subcmd == 0x10) {
                         recordLog("Identified as file list response");
-                        handleFileListResponse(data);
                     } else if (subcmd == 0x11) {
                         recordLog("Identified as file data response");
-                        handleFileDataResponse(data);
-                    } else if (subcmd == 0x13){
+                    } else if (subcmd == 0x1A){
+                        recordLog("Identified as Download Status response");
+                    }else if (subcmd == 0x1B){
+                        recordLog("Identified as Batch File Info");
+                    }
+                    else if (subcmd == 0x13){
                         recordLog("Identified as format file system response");
                     }
                 }else if(cmd == 0x12){
-
                     recordLog("Identified as battery level response");
                     handleBatteryLevelResponse(data);
-
                 }
 
             }
         } catch (Exception e) {
             recordLog("Failed to handle custom command response: " + e.getMessage());
+        }
+    }
+    private void handleBatchDownloadStatusResponse(byte[] data) {
+        try {
+            if (data.length < 5) {
+                recordLog("Invalid batch download status response length: " + data.length);
+                return;
+            }
+
+            int status = data[4] & 0xFF;
+
+            switch (status) {
+                case 0: // 设备忙
+                    recordLog("Device is busy, hardware batch download failed");
+                    mainHandler.post(() -> {
+                        Toast.makeText(this, "Device is busy, please try again later", Toast.LENGTH_SHORT).show();
+                    });
+                    resetHardwareBatchDownloadState();
+                    break;
+
+                case 1: // 开始硬件一键下载
+                    if (data.length >= 13) {
+                        long startTimestamp = bytesToLong(Arrays.copyOfRange(data, 5, 9));
+                        long endTimestamp = bytesToLong(Arrays.copyOfRange(data, 9, 13));
+                        batchDownloadStartTime = startTimestamp;
+                        batchDownloadEndTime = endTimestamp;
+
+                        recordLog(String.format("Hardware batch download started. Time range: %d - %d",
+                                startTimestamp, endTimestamp));
+
+                    }
+                    break;
+
+                case 2: // 硬件一键下载完成
+                    recordLog("Hardware batch download completed. Total files received: " + receivedBatchFiles.size());
+                    mainHandler.post(() -> {
+                        Toast.makeText(this, "Hardware batch download completed", Toast.LENGTH_SHORT).show();
+                    });
+                    finalizeBatchDownload();
+                    break;
+
+                case 3: // 文件序号不符合或其他错误
+                    recordLog("Hardware batch download error: invalid file sequence");
+
+                    resetHardwareBatchDownloadState();
+                    break;
+
+                default:
+                    recordLog("Unknown hardware batch download status: " + status);
+                    break;
+            }
+
+        } catch (Exception e) {
+            recordLog("Error processing batch download status: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    private void resetHardwareBatchDownloadState() {
+        isHardwareBatchDownloading = false;
+        currentBatchFile = null;
+
+        mainHandler.post(() -> {
+            if (downloadAllButton != null) {
+                downloadAllButton.setText("Download All Files");
+                downloadAllButton.setEnabled(true);
+            }
+        });
+    }
+
+    /**
+     * 处理硬件推送的文件信息 (0x361B)
+     */
+    // 硬件一键下载相关变量
+    private boolean isHardwareBatchDownloading = false;
+    private List<BatchFileInfo> receivedBatchFiles = new ArrayList<>();
+    private BatchFileInfo currentBatchFile = null;
+    private int expectedFileCount = 0;
+    private long batchDownloadStartTime = 0;
+    private long batchDownloadEndTime = 0;
+
+    // 批量文件信息类
+    private static class BatchFileInfo {
+        public int fileIndex;
+        public String fileName;
+        public long startTimestamp;
+        public long endTimestamp;
+        public List<byte[]> fileDataPackets;
+        public boolean isComplete;
+        public int totalPackets;
+        public int receivedPackets;
+
+        public BatchFileInfo(int fileIndex, String fileName, long startTimestamp, long endTimestamp) {
+            this.fileIndex = fileIndex;
+            this.fileName = fileName;
+            this.startTimestamp = startTimestamp;
+            this.endTimestamp = endTimestamp;
+            this.fileDataPackets = new ArrayList<>();
+            this.isComplete = false;
+            this.totalPackets = 0;
+            this.receivedPackets = 0;
+        }
+    }
+    private void handleBatchFileInfoPush(byte[] data) {
+        try {
+            if (data.length < 50) {
+                recordLog("Invalid batch file info length: " + data.length);
+                return;
+            }
+
+            int fileIndex = data[4] & 0xFF;
+            int uploadStatus = data[5] & 0xFF;
+            long startTimestamp = bytesToLong(Arrays.copyOfRange(data, 6, 10));
+            long endTimestamp = bytesToLong(Arrays.copyOfRange(data, 10, 14));
+
+            // 提取文件名
+            byte[] fileNameBytes = Arrays.copyOfRange(data, 14, data.length);
+            String fileName = extractFileName(fileNameBytes);
+
+            if (uploadStatus == 0) {
+                // 开始推送文件信息
+                currentBatchFile = new BatchFileInfo(fileIndex, fileName, startTimestamp, endTimestamp);
+                recordLog(String.format("Receiving batch file info: [%d] %s", fileIndex, fileName));
+
+                mainHandler.post(() -> {
+                    updateBatchDownloadProgress("Receiving: " + fileName);
+                });
+
+            }
+
+        } catch (Exception e) {
+            recordLog("Error processing batch file info: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    private void  handleFileDownloadEndResponse(byte[] data) {
+        try {
+
+            if (currentBatchFile != null) {
+                currentBatchFile.isComplete = true;
+                receivedBatchFiles.add(currentBatchFile);
+
+                saveBatchFileData(currentBatchFile);
+
+
+                currentBatchFile = null;
+            }
+
+        } catch (Exception e) {
+            recordLog("Error processing batch file info: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    private String extractFileName(byte[] fileNameBytes) {
+        try {
+            // 添加调试日志
+            StringBuilder hexLog = new StringBuilder();
+            for (byte b : fileNameBytes) {
+                hexLog.append(String.format("%02X ", b & 0xFF));
+            }
+            recordLog("FileName bytes: " + hexLog.toString());
+
+            // 处理UTF-8编码的文件名
+            String fileName = new String(fileNameBytes, "UTF-8");
+            recordLog("Raw fileName string: '" + fileName + "' (length: " + fileName.length() + ")");
+
+            // 找到第一个null字符并截断
+            int nullIndex = fileName.indexOf('\0');
+            if (nullIndex != -1) {
+                fileName = fileName.substring(0, nullIndex);
+                recordLog("After null truncation: '" + fileName + "'");
+            }
+
+            // 移除不可见字符但保留正常的文件名字符
+            fileName = fileName.replaceAll("[\\x00-\\x1F\\x7F]", "").trim();
+            recordLog("After cleanup: '" + fileName + "'");
+
+            // 如果文件名为空，生成默认名称
+            if (fileName.isEmpty()) {
+                fileName = "unknown_file_" + System.currentTimeMillis();
+            }
+
+            return fileName;
+        } catch (Exception e) {
+            recordLog("Error extracting file name: " + e.getMessage());
+            return "unknown_file_" + System.currentTimeMillis();
+        }
+    }
+
+
+    /**
+     * 字节数组转长整型（小端序）
+     */
+    private long bytesToLong(byte[] bytes) {
+        if (bytes.length != 4) {
+            throw new IllegalArgumentException("Byte array must be 4 bytes long");
+        }
+        return ((long)(bytes[0] & 0xFF)) |
+                ((long)(bytes[1] & 0xFF) << 8) |
+                ((long)(bytes[2] & 0xFF) << 16) |
+                ((long)(bytes[3] & 0xFF) << 24);
+    }
+
+    /**
+     * 处理硬件推送的文件数据
+     */
+    private boolean handleBatchFileDataPush(byte[] data) {
+
+        if (currentBatchFile == null) {
+            recordLog("Received file data but no current batch file");
+            return false;
+        }
+
+        try {
+            byte[] fileData = Arrays.copyOfRange(data, 4, data.length);
+            currentBatchFile.fileDataPackets.add(fileData);
+            currentBatchFile.receivedPackets++;
+            return true;
+        } catch (Exception e) {
+            recordLog("Error processing batch file data: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * 保存批量文件数据
+     */
+    private void saveBatchFileData(BatchFileInfo fileInfo) {
+        try {
+            String directoryPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                    + "/Sample/RingLog/BatchDownloads/";
+            File directory = new File(directoryPath);
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
+
+            String safeFileName = fileInfo.fileName.replace(":", "_");
+            File file = new File(directory, safeFileName);
+
+            try (FileWriter fileWriter = new FileWriter(file);
+                 BufferedWriter writer = new BufferedWriter(fileWriter)) {
+
+                // 写入文件头信息
+                writer.write("# ========== Hardware Batch Download File ==========\n");
+                writer.write("# File name: " + fileInfo.fileName + "\n");
+                writer.write("# File index: " + fileInfo.fileIndex + "\n");
+                writer.write("# Start timestamp: " + fileInfo.startTimestamp + "\n");
+                writer.write("# End timestamp: " + fileInfo.endTimestamp + "\n");
+                writer.write("# Download time: " + getCurrentTimestamp() + "\n");
+                writer.write("# Total packets: " + fileInfo.receivedPackets + "\n");
+                writer.write("# ==================================================\n\n");
+
+                // 写入所有数据包
+                for (int i = 0; i < fileInfo.fileDataPackets.size(); i++) {
+                    byte[] packetData = fileInfo.fileDataPackets.get(i);
+                    writer.write("# Packet " + (i + 1) + "/" + fileInfo.receivedPackets + ":\n");
+                    writer.write("# Raw data: " + bytesToHexString(packetData) + "\n");
+                    writer.write("\n");
+                }
+
+                writer.flush();
+            }
+
+            recordLog(String.format("Hardware batch file saved: %s -> %s",
+                    fileInfo.fileName, file.getAbsolutePath()));
+
+        } catch (IOException e) {
+            recordLog("Failed to save hardware batch file: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 完成批量下载
+     */
+    private void finalizeBatchDownload() {
+        long downloadDuration = System.currentTimeMillis() - batchDownloadStartTime;
+
+        recordLog(String.format("Hardware batch download completed! Files: %d, Duration: %d ms",
+                receivedBatchFiles.size(), downloadDuration));
+
+        mainHandler.post(() -> {
+            Toast.makeText(this, String.format("Hardware batch download completed!\n%d files downloaded",
+                    receivedBatchFiles.size()), Toast.LENGTH_LONG).show();
+
+            updateBatchDownloadProgress("Completed: " + receivedBatchFiles.size() + " files");
+        });
+
+        resetHardwareBatchDownloadState();
+    }
+
+    /**
+     * 更新批量下载进度显示
+     */
+    private void updateBatchDownloadProgress(String status) {
+        if (downloadAllButton != null) {
+            downloadAllButton.setText("Hardware Downloading... " + status);
         }
     }
     private void handleBatteryLevelResponse(byte[] data) {
@@ -1931,7 +2226,6 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     public void saveData(String s) {
         String msg = NotificationHandler.handleNotification(hexStringToByteArray(s));
         recordLog("Received data: " + msg);
-
         if (connectionStatus == 7 && deviceName.isEmpty()) {
             SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
             deviceName = prefs.getString("device_name", "Ring Device");

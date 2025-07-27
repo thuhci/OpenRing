@@ -1029,12 +1029,15 @@
                             android:id="@+id/downloadSelectedButton"
                             android:layout_width="match_parent"
                             android:layout_height="100dp"
+                            android:layout_marginBottom="10dp"
                             android:text="Download Selected (0)"
                             android:textSize="14sp"
                             android:background="@drawable/button_orange_bg"
                             android:textColor="@android:color/white" />
                         <Button
                             android:id="@+id/downloadAll"
+                            android:layout_marginTop="10dp"
+
                             android:layout_width="match_parent"
                             android:layout_height="100dp"
                             android:text="Download All"
