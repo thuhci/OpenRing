@@ -1,7 +1,19 @@
-# OpenRing
+# OpenRing (UbiComp 25' Companion)
 Android application for smart ring monitoring and data collection. If you just want to use the application for ring monitoring (Android devices), you can simply download the APK directly from releases.
 
 If you want to modify the code or build the application from source, below are the requirements to build the project.
+
+## Features
+
+### Real-time Monitoring
+- **PPG Data**: Green, IR, and Red light measurements
+- **3-Axis Accelerometer**: Motion tracking and analysis
+- **3-Axis Gyroscope**: Rotation and orientation data
+- **Temperature Sensors**: Multi-point temperature monitoring
+
+### Data Management
+- **File Download**: Retrieve stored data from ring device```
+
 
 ### Android SDK
 The project requires:
@@ -137,16 +149,7 @@ cd OpenRing
 ./gradlew installDebug
 ```
 
-## Features
 
-### Real-time Monitoring
-- **PPG Data**: Green, IR, and Red light measurements
-- **3-Axis Accelerometer**: Motion tracking and analysis
-- **3-Axis Gyroscope**: Rotation and orientation data
-- **Temperature Sensors**: Multi-point temperature monitoring
-
-### Data Management
-- **File Download**: Retrieve stored data from ring device```
 
 ## Known Issues and Solutions
 
@@ -167,7 +170,7 @@ For questions and support:
 - Create an issue on [GitHub Issues](https://github.com/thuhci/OpenRing/issues)
 
 ## Releases
-Current stable version: **v1.0.0**
+Current stable version: **v1.1.0**
 - Download the latest APK from [Releases](https://github.com/thuhci/OpenRing/releases)
 
 ---
@@ -176,4 +179,20 @@ Current stable version: **v1.0.0**
 - Language: Java (85%), XML (15%)
 - Minimum Android Version: 7.0 (API 24)
 - License: MIT
-- Last Updated: July 2025
+- Last Updated: August 2025
+
+
+## 📄 Citation
+Title: [τ-Ring: A Smart Ring Platform for Multimodal Physiological and Behavioral Sensing](https://arxiv.org/abs/2508.00778)  
+Jiankai Tang, Zhe He, Mingyu Zhang, Wei Geng, Chengchi Zhou, Weinan Shi, Yuanchun Shi, Yuntao Wang, "τ-Ring: A Smart Ring Platform for Multimodal Physiological and Behavioral Sensing", UbiComp Companion, 2025  
+```
+@article{tang2025ring,
+      title={{\tau}-Ring: A Smart Ring Platform for Multimodal Physiological and Behavioral Sensing}, 
+      author={Jiankai Tang and Zhe He and Mingyu Zhang and Wei Geng and Chengchi Zhou and Weinan Shi and Yuanchun Shi and Yuntao Wang},
+      year={2025},
+      eprint={2508.00778},
+      archivePrefix={arXiv},
+      primaryClass={cs.CE},
+      url={https://arxiv.org/abs/2508.00778}, 
+}
+```
