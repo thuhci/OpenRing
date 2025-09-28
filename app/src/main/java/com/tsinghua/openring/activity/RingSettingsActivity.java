@@ -2,13 +2,16 @@ package com.tsinghua.openring.activity;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -21,6 +24,8 @@ import com.lm.sdk.mode.BleDeviceInfo;
 import com.lm.sdk.utils.BLEUtils;
 import com.tsinghua.openring.R;
 import com.tsinghua.openring.RingAdapter;
+import com.tsinghua.openring.utils.CloudConfig;
+import com.tsinghua.openring.utils.CloudSyncService;
 
 import java.util.ArrayList;
 
@@ -35,6 +40,19 @@ public class RingSettingsActivity extends AppCompatActivity {
     private RingAdapter deviceAdapter;
     private ArrayList<String> deviceInfoList;
     private ArrayList<BluetoothDevice> scannedDevices;
+
+    // 云端同步相关组件
+    private EditText serverUrlInput;
+    private EditText apiKeyInput;
+    private Switch cloudSyncSwitch;
+    private Button testConnectionButton;
+    private Button syncOfflineButton;
+    private Button syncOnlineButton;
+    private Button syncAllButton;
+    private Button logoutButton;
+    private TextView connectionStatus;
+    private CloudConfig cloudConfig;
+    private CloudSyncService cloudSyncService;
 
     private BluetoothAdapter.LeScanCallback leScanCallback = new BluetoothAdapter.LeScanCallback() {
         @Override
@@ -83,6 +101,8 @@ public class RingSettingsActivity extends AppCompatActivity {
         initializeViews();
         setupClickListeners();
         loadSelectedDevice();
+        loadCloudSettings();
+        updateLogoutButtonVisibility();
         updateDeviceCount();
         updateEmptyState();
 
@@ -111,6 +131,21 @@ public class RingSettingsActivity extends AppCompatActivity {
             info.setText("Ring Device Settings");
         }
 
+        // 初始化云端同步相关组件
+        serverUrlInput = findViewById(R.id.serverUrlInput);
+        apiKeyInput = findViewById(R.id.apiKeyInput);
+        cloudSyncSwitch = findViewById(R.id.cloudSyncSwitch);
+        testConnectionButton = findViewById(R.id.testConnectionButton);
+        syncOfflineButton = findViewById(R.id.syncOfflineButton);
+        syncOnlineButton = findViewById(R.id.syncOnlineButton);
+        syncAllButton = findViewById(R.id.syncAllButton);
+        logoutButton = findViewById(R.id.logoutButton);
+        connectionStatus = findViewById(R.id.connectionStatus);
+
+        // 初始化CloudConfig和CloudSyncService
+        cloudConfig = new CloudConfig(this);
+        cloudSyncService = new CloudSyncService(this);
+
         deviceInfoList = new ArrayList<>();
         scannedDevices = new ArrayList<>();
         deviceAdapter = new RingAdapter(this, scannedDevices, deviceInfoList);
@@ -123,6 +158,33 @@ public class RingSettingsActivity extends AppCompatActivity {
                 stopBluetoothScan();
             } else {
                 startBluetoothScan();
+            }
+        });
+
+        // 云端同步相关点击事件
+        testConnectionButton.setOnClickListener(v -> testCloudConnection());
+
+        // 分离的同步按钮事件
+        syncOfflineButton.setOnClickListener(v -> syncOfflineFiles());
+        syncOnlineButton.setOnClickListener(v -> syncOnlineFiles());
+        syncAllButton.setOnClickListener(v -> syncAllFiles());
+        logoutButton.setOnClickListener(v -> logout());
+
+        cloudSyncSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            cloudConfig.setCloudSyncEnabled(isChecked);
+            updateConnectionStatus("Cloud sync " + (isChecked ? "enabled" : "disabled"));
+        });
+
+        // 配置变更时自动保存
+        serverUrlInput.setOnFocusChangeListener((v, hasFocus) -> {
+            if (!hasFocus) {
+                saveCloudSettings();
+            }
+        });
+
+        apiKeyInput.setOnFocusChangeListener((v, hasFocus) -> {
+            if (!hasFocus) {
+                saveCloudSettings();
             }
         });
     }
@@ -162,8 +224,21 @@ public class RingSettingsActivity extends AppCompatActivity {
     }
 
     private void startBluetoothScan() {
+        if (bluetoothAdapter == null) {
+            Toast.makeText(this, "Bluetooth adapter not available", Toast.LENGTH_SHORT).show();
+            Log.e("RingSettings", "Bluetooth adapter is null");
+            return;
+        }
+
         if (!bluetoothAdapter.isEnabled()) {
-            Toast.makeText(this, "Please enable Bluetooth first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please enable Bluetooth in system settings first", Toast.LENGTH_LONG).show();
+
+            // 尝试提示用户启用蓝牙
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            try {
+                startActivity(enableBtIntent);
+            } catch (Exception ignored) {
+            }
             return;
         }
 
@@ -182,8 +257,6 @@ public class RingSettingsActivity extends AppCompatActivity {
         scanButton.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
 
         BLEUtils.startLeScan(this, leScanCallback);
-        Log.d("RingLog", "Starting Bluetooth scan...");
-
         Toast.makeText(this, "Starting device scan...", Toast.LENGTH_SHORT).show();
     }
 
@@ -245,10 +318,336 @@ public class RingSettingsActivity extends AppCompatActivity {
         Toast.makeText(this, "Device selection saved", Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * 加载云端设置到UI
+     */
+    private void loadCloudSettings() {
+        serverUrlInput.setText(cloudConfig.getServerUrl());
+        apiKeyInput.setText(cloudConfig.getApiKey());
+        cloudSyncSwitch.setChecked(cloudConfig.isCloudSyncEnabled());
+
+        // 更新连接状态显示
+        if (cloudConfig.isConfigValid()) {
+            updateConnectionStatus("Config saved, click test connection to verify");
+        } else {
+            updateConnectionStatus("Connection status: Not configured");
+        }
+
+        Log.d("RingSettings", "Cloud config loaded: " + cloudConfig.getConfigSummary());
+    }
+
+    /**
+     * 保存云端设置
+     */
+    private void saveCloudSettings() {
+        String serverUrl = serverUrlInput.getText().toString().trim();
+        String apiKey = apiKeyInput.getText().toString().trim();
+
+        // 基本验证
+        if (!serverUrl.isEmpty()) {
+            if (!serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
+                serverUrl = "https://" + serverUrl;
+                serverUrlInput.setText(serverUrl);
+            }
+        }
+
+        cloudConfig.setServerUrl(serverUrl);
+        cloudConfig.setApiKey(apiKey);
+
+        // 更新设备ID（从当前选中的设备获取）
+        SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
+        String macAddress = prefs.getString("mac_address", "");
+        if (!macAddress.isEmpty()) {
+            cloudConfig.setDeviceId(macAddress.replace(":", "").toLowerCase());
+        }
+
+        Log.d("RingSettings", "Cloud settings saved: " + cloudConfig.getConfigSummary());
+        updateConnectionStatus("Config saved");
+    }
+
+    /**
+     * 测试云端连接
+     */
+    private void testCloudConnection() {
+        saveCloudSettings(); // 先保存当前设置
+
+        if (!cloudConfig.isConfigValid()) {
+            updateConnectionStatus("Error: Please enter valid server address");
+            Toast.makeText(this, "Please enter valid server address", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (cloudSyncService == null) {
+            updateConnectionStatus("Error: Cloud sync service not initialized");
+            Toast.makeText(this, "Service initialization failed", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        updateConnectionStatus("Testing connection...");
+        testConnectionButton.setEnabled(false);
+
+        // 使用真实的CloudSyncService测试连接
+        cloudSyncService.testConnection(new CloudSyncService.TestConnectionCallback() {
+            @Override
+            public void onResult(boolean success, String message) {
+                runOnUiThread(() -> {
+                    if (success) {
+                        updateConnectionStatus("Connection successful!");
+                        Toast.makeText(RingSettingsActivity.this, "Cloud connection test successful", Toast.LENGTH_SHORT).show();
+                        Log.d("RingSettings", "Cloud connection test successful");
+                    } else {
+                        updateConnectionStatus("Connection failed: " + message);
+                        Toast.makeText(RingSettingsActivity.this, "Connection test failed: " + message, Toast.LENGTH_SHORT).show();
+                        Log.e("RingSettings", "Cloud connection test failed: " + message);
+                    }
+                    testConnectionButton.setEnabled(true);
+                });
+            }
+        });
+    }
+
+    /**
+     * 更新连接状态显示
+     */
+    private void updateConnectionStatus(String status) {
+        if (connectionStatus != null) {
+            connectionStatus.setText("Connection status: " + status);
+
+            // 根据状态设置不同颜色
+            if (status.contains("successful")) {
+                connectionStatus.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+            } else if (status.contains("failed") || status.contains("Error")) {
+                connectionStatus.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
+            } else {
+                connectionStatus.setBackgroundColor(getResources().getColor(android.R.color.background_light));
+            }
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // 页面失去焦点时保存设置
+        saveCloudSettings();
+    }
+
+    /**
+     * 同步离线测量文件
+     */
+    private void syncOfflineFiles() {
+        if (!cloudConfig.isCloudSyncEnabled() || !cloudConfig.isConfigValid()) {
+            Toast.makeText(this, "Please configure and enable cloud sync first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 检查登录状态，如果未登录则跳转到登录界面
+        if (!cloudConfig.isLoggedIn()) {
+            Toast.makeText(this, "Please login first to sync data to cloud", Toast.LENGTH_SHORT).show();
+            Intent loginIntent = new Intent(this, LoginActivity.class);
+            startActivity(loginIntent);
+            return;
+        }
+
+        saveCloudSettings(); // 确保设置已保存
+        updateConnectionStatus("Syncing offline measurement data...");
+        syncOfflineButton.setEnabled(false);
+
+        // 获取用户信息
+        String userName = getUserName();
+        String userDescription = getUserDescription();
+
+        if (userName.isEmpty()) {
+            updateConnectionStatus("Error: Please set user info in main page");
+            syncOfflineButton.setEnabled(true);
+            return;
+        }
+
+        cloudSyncService.uploadOfflineFiles(userName, userDescription, new CloudSyncService.UploadProgressCallback() {
+            @Override
+            public void onProgress(int current, int total, String fileName) {
+                runOnUiThread(() -> updateConnectionStatus(
+                    String.format("Syncing offline data: %d/%d - %s", current, total, fileName)));
+            }
+
+            @Override
+            public void onFileCompleted(String fileName, boolean success, String message) {
+                // 单个文件完成时不需要特殊处理
+            }
+
+            @Override
+            public void onAllCompleted(int uploaded, int failed) {
+                runOnUiThread(() -> {
+                    String resultMsg = String.format("Offline data sync completed: %d succeeded, %d failed", uploaded, failed);
+                    updateConnectionStatus(resultMsg);
+                    Toast.makeText(RingSettingsActivity.this, resultMsg, Toast.LENGTH_LONG).show();
+                    syncOfflineButton.setEnabled(true);
+                });
+            }
+        });
+    }
+
+    /**
+     * 同步在线测量文件
+     */
+    private void syncOnlineFiles() {
+        if (!cloudConfig.isCloudSyncEnabled() || !cloudConfig.isConfigValid()) {
+            Toast.makeText(this, "Please configure and enable cloud sync first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 检查登录状态，如果未登录则跳转到登录界面
+        if (!cloudConfig.isLoggedIn()) {
+            Toast.makeText(this, "Please login first to sync data to cloud", Toast.LENGTH_SHORT).show();
+            Intent loginIntent = new Intent(this, LoginActivity.class);
+            startActivity(loginIntent);
+            return;
+        }
+
+        saveCloudSettings(); // 确保设置已保存
+        updateConnectionStatus("Syncing online measurement data...");
+        syncOnlineButton.setEnabled(false);
+
+        // 获取用户信息
+        String userName = getUserName();
+        String userDescription = getUserDescription();
+
+        if (userName.isEmpty()) {
+            updateConnectionStatus("Error: Please set user info in main page");
+            syncOnlineButton.setEnabled(true);
+            return;
+        }
+
+        cloudSyncService.uploadOnlineFiles(userName, userDescription, new CloudSyncService.UploadProgressCallback() {
+            @Override
+            public void onProgress(int current, int total, String fileName) {
+                runOnUiThread(() -> updateConnectionStatus(
+                    String.format("Syncing online data: %d/%d - %s", current, total, fileName)));
+            }
+
+            @Override
+            public void onFileCompleted(String fileName, boolean success, String message) {
+                // 单个文件完成时不需要特殊处理
+            }
+
+            @Override
+            public void onAllCompleted(int uploaded, int failed) {
+                runOnUiThread(() -> {
+                    String resultMsg = String.format("Online data sync completed: %d succeeded, %d failed", uploaded, failed);
+                    updateConnectionStatus(resultMsg);
+                    Toast.makeText(RingSettingsActivity.this, resultMsg, Toast.LENGTH_LONG).show();
+                    syncOnlineButton.setEnabled(true);
+                });
+            }
+        });
+    }
+
+    /**
+     * 同步所有文件
+     */
+    private void syncAllFiles() {
+        if (!cloudConfig.isCloudSyncEnabled() || !cloudConfig.isConfigValid()) {
+            Toast.makeText(this, "Please configure and enable cloud sync first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 检查登录状态，如果未登录则跳转到登录界面
+        if (!cloudConfig.isLoggedIn()) {
+            Toast.makeText(this, "Please login first to sync data to cloud", Toast.LENGTH_SHORT).show();
+            Intent loginIntent = new Intent(this, LoginActivity.class);
+            startActivity(loginIntent);
+            return;
+        }
+
+        saveCloudSettings(); // 确保设置已保存
+        updateConnectionStatus("Syncing all data...");
+        syncAllButton.setEnabled(false);
+
+        // 获取用户信息
+        String userName = getUserName();
+        String userDescription = getUserDescription();
+
+        if (userName.isEmpty()) {
+            updateConnectionStatus("Error: Please set user info in main page");
+            syncAllButton.setEnabled(true);
+            return;
+        }
+
+        cloudSyncService.uploadAllFiles(userName, userDescription, new CloudSyncService.UploadProgressCallback() {
+            @Override
+            public void onProgress(int current, int total, String fileName) {
+                runOnUiThread(() -> updateConnectionStatus(
+                    String.format("Syncing all data: %d/%d - %s", current, total, fileName)));
+            }
+
+            @Override
+            public void onFileCompleted(String fileName, boolean success, String message) {
+                // 单个文件完成时不需要特殊处理
+            }
+
+            @Override
+            public void onAllCompleted(int uploaded, int failed) {
+                runOnUiThread(() -> {
+                    String resultMsg = String.format("All data sync completed: %d succeeded, %d failed", uploaded, failed);
+                    updateConnectionStatus(resultMsg);
+                    Toast.makeText(RingSettingsActivity.this, resultMsg, Toast.LENGTH_LONG).show();
+                    syncAllButton.setEnabled(true);
+                });
+            }
+        });
+    }
+
+    /**
+     * 获取用户名
+     */
+    private String getUserName() {
+        SharedPreferences userInfoPrefs = getSharedPreferences("UserInfo", MODE_PRIVATE);
+        return userInfoPrefs.getString("user_name", "");
+    }
+
+    /**
+     * 获取用户描述
+     */
+    private String getUserDescription() {
+        SharedPreferences userInfoPrefs = getSharedPreferences("UserInfo", MODE_PRIVATE);
+        return userInfoPrefs.getString("user_description", "");
+    }
+
+    /**
+     * 登出功能
+     */
+    private void logout() {
+        cloudConfig.clearLoginInfo();
+        Toast.makeText(this, "已退出登录", Toast.LENGTH_SHORT).show();
+        updateLogoutButtonVisibility();
+        updateConnectionStatus("Logged out successfully");
+        Log.d("RingSettings", "User logged out");
+    }
+
+    /**
+     * 更新登出按钮的可见性
+     */
+    private void updateLogoutButtonVisibility() {
+        if (logoutButton != null) {
+            if (cloudConfig.isLoggedIn()) {
+                logoutButton.setVisibility(View.VISIBLE);
+            } else {
+                logoutButton.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 页面恢复时更新登出按钮状态，以防用户在其他页面登录/登出
+        updateLogoutButtonVisibility();
+    }
+
     @Override
     public void onBackPressed() {
         super.onBackPressed();
-        // Ensure scan stops when going back
+        // 返回时保存设置并停止扫描
+        saveCloudSettings();
         if (isScanning) {
             stopBluetoothScan();
         }

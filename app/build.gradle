@@ -7,6 +7,9 @@ android {
     buildFeatures {
         buildConfig = true  // Disable BuildConfig generation
     }
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
     defaultConfig {
         applicationId "com.tsinghua.openring"
         minSdk 26

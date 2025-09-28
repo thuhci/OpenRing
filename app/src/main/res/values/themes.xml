@@ -13,4 +13,10 @@
     </style>
 
     <style name="Theme.OpenRing" parent="Base.Theme.OpenRing" />
+
+    <!-- 无ActionBar主题，用于登录界面 -->
+    <style name="Theme.OpenRing.NoActionBar" parent="Base.Theme.OpenRing">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
 </resources>

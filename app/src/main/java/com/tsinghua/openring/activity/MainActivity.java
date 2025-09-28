@@ -20,6 +20,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,6 +29,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.textfield.TextInputEditText;
 import com.lm.sdk.LmAPI;
 import com.lm.sdk.LmAPILite;
 import com.lm.sdk.inter.IHistoryListener;
@@ -41,6 +43,8 @@ import com.tsinghua.openring.R;
 import com.tsinghua.openring.PlotView;
 import com.tsinghua.openring.utils.BLEService;
 import com.tsinghua.openring.utils.NotificationHandler;
+import com.tsinghua.openring.utils.CloudConfig;
+import com.tsinghua.openring.utils.CloudSyncService;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -84,6 +88,12 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private TextView fileListStatus;
     private LinearLayout fileListContainer;
     private BottomNavigationView bottomNavigation;
+
+    // 用户信息表单控件
+    private TextInputEditText userNameEditText;
+    private TextInputEditText userDescriptionEditText;
+    private Button saveUserInfoButton;
+    private SharedPreferences userInfoPrefs;
 
     // Status Variables
     private boolean isConnected = false;
@@ -151,6 +161,18 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private TextView logDisplayText;
     private BufferedWriter logWriter;
     private boolean isLogRecording = false;
+
+    // Cloud Sync Related
+    private TextView cloudSyncIndicator;
+    private TextView uploadedFilesCount;
+    private TextView pendingFilesCount;
+    private TextView failedFilesCount;
+    private TextView syncStatusText;
+    private ProgressBar uploadProgressBar;
+    private Button manualSyncButton;
+    private Button viewCloudDataButton;
+    private CloudConfig cloudConfig;
+    private CloudSyncService cloudSyncService;
 
     // Measurement Related
     private Timer measurementTimer;
@@ -245,6 +267,8 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+
         setContentView(R.layout.activity_main);
 
         mainHandler = new Handler(Looper.getMainLooper());
@@ -363,11 +387,34 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         plotViewTemp1 = findViewById(R.id.plotViewTemp1);
         plotViewTemp2 = findViewById(R.id.plotViewTemp2);
 
+        // Initialize Cloud Sync components
+        cloudSyncIndicator = findViewById(R.id.cloudSyncIndicator);
+        uploadedFilesCount = findViewById(R.id.uploadedFilesCount);
+        pendingFilesCount = findViewById(R.id.pendingFilesCount);
+        failedFilesCount = findViewById(R.id.failedFilesCount);
+        syncStatusText = findViewById(R.id.syncStatusText);
+        uploadProgressBar = findViewById(R.id.uploadProgressBar);
+        manualSyncButton = findViewById(R.id.manualSyncButton);
+        viewCloudDataButton = findViewById(R.id.viewCloudDataButton);
+
+        // Initialize CloudConfig and CloudSyncService
+        cloudConfig = new CloudConfig(this);
+        cloudSyncService = new CloudSyncService(this);
+
         // Set PlotView colors
         setupPlotViewColors();
 
         // Bottom navigation
         bottomNavigation = findViewById(R.id.bottomNavigation);
+
+        // 用户信息表单控件
+        userNameEditText = findViewById(R.id.userNameEditText);
+        userDescriptionEditText = findViewById(R.id.userDescriptionEditText);
+        saveUserInfoButton = findViewById(R.id.saveUserInfoButton);
+        userInfoPrefs = getSharedPreferences("UserInfo", MODE_PRIVATE);
+
+        // 加载已保存的用户信息
+        loadUserInfo();
 
         // Set default values
         setDefaultValues();
@@ -377,6 +424,8 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         updateMeasurementUI(false);
         updateExerciseUI(false);
         updateLogRecordingUI(false);
+        updateCloudSyncStatus();
+        updateLogoutButtonVisibility();
     }
 
     private void setupPlotViewColors() {
@@ -567,6 +616,17 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         if (stopLogRecordingButton != null) {
             stopLogRecordingButton.setOnClickListener(v -> stopLogRecording());
         }
+
+        // Cloud sync buttons
+        if (manualSyncButton != null) {
+            manualSyncButton.setOnClickListener(v -> startManualSync());
+        }
+        if (viewCloudDataButton != null) {
+            viewCloudDataButton.setOnClickListener(v -> openCloudDataViewer());
+        }
+
+        // 用户信息保存按钮
+        saveUserInfoButton.setOnClickListener(v -> saveUserInfo());
     }
 
     // ==================== Page Switching ====================
@@ -2021,12 +2081,14 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         String fullLogMessage = "[" + timestamp + "] " + message;
 
         // Display to UI
-        mainHandler.post(() -> {
-            if (logDisplayText != null) {
-                logDisplayText.setText(message);
+        if (mainHandler != null) {
+            mainHandler.post(() -> {
+                if (logDisplayText != null) {
+                    logDisplayText.setText(message);
 
-            }
-        });
+                }
+            });
+        }
 
         // Write to file (only when recording)
         if (isLogRecording && logWriter != null) {
@@ -2039,6 +2101,218 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
 
         android.util.Log.d("MainActivity", fullLogMessage);
+    }
+
+    // ==================== Cloud Sync Methods ====================
+
+    /**
+     * 更新云端同步状态显示
+     */
+    private void updateCloudSyncStatus() {
+        if (cloudConfig == null) return;
+
+        boolean isEnabled = cloudConfig.isCloudSyncEnabled();
+        boolean hasValidConfig = cloudConfig.isConfigValid();
+
+        // 更新同步指示器
+        if (cloudSyncIndicator != null) {
+            if (isEnabled && hasValidConfig) {
+                cloudSyncIndicator.setText("Enabled");
+                cloudSyncIndicator.setBackgroundColor(Color.parseColor("#4CAF50"));
+            } else if (isEnabled && !hasValidConfig) {
+                cloudSyncIndicator.setText("Config Error");
+                cloudSyncIndicator.setBackgroundColor(Color.parseColor("#FF9800"));
+            } else {
+                cloudSyncIndicator.setText("Disabled");
+                cloudSyncIndicator.setBackgroundColor(Color.parseColor("#FF5722"));
+            }
+        }
+
+        // 更新状态文本
+        if (syncStatusText != null) {
+            if (isEnabled && hasValidConfig) {
+                syncStatusText.setText("Cloud sync enabled, Server: " + cloudConfig.getServerUrl());
+            } else if (isEnabled && !hasValidConfig) {
+                syncStatusText.setText("Cloud sync enabled but config invalid, please check settings");
+            } else {
+                syncStatusText.setText("Cloud sync disabled");
+            }
+        }
+
+        // 更新按钮状态
+        boolean canOperate = isEnabled && hasValidConfig;
+        if (manualSyncButton != null) {
+            manualSyncButton.setEnabled(canOperate);
+        }
+        if (viewCloudDataButton != null) {
+            viewCloudDataButton.setEnabled(canOperate);
+        }
+
+        // 扫描并更新文件统计
+        updateFileStatistics();
+
+        recordLog("Cloud sync status updated - Enabled: " + isEnabled + ", Valid: " + hasValidConfig);
+    }
+
+    /**
+     * 更新文件统计信息
+     */
+    private void updateFileStatistics() {
+        if (cloudSyncService == null) return;
+
+        // 使用CloudSyncService获取真实的文件统计
+        CloudSyncService.FileStatistics stats = cloudSyncService.getFileStatistics();
+
+        // 更新UI显示
+        if (uploadedFilesCount != null) {
+            uploadedFilesCount.setText(String.valueOf(stats.uploaded));
+        }
+        if (pendingFilesCount != null) {
+            pendingFilesCount.setText(String.valueOf(stats.pending));
+        }
+        if (failedFilesCount != null) {
+            failedFilesCount.setText(String.valueOf(stats.failed));
+        }
+
+        recordLog(String.format("File statistics - Total: %d, Uploaded: %d, Pending: %d, Failed: %d",
+                stats.total, stats.uploaded, stats.pending, stats.failed));
+    }
+
+    /**
+     * 开始手动同步
+     */
+    private void startManualSync() {
+        if (!cloudConfig.isCloudSyncEnabled() || !cloudConfig.isConfigValid()) {
+            Toast.makeText(this, "Please configure cloud sync in settings first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 检查登录状态，如果未登录则跳转到登录界面
+        if (!cloudConfig.isLoggedIn()) {
+            Toast.makeText(this, "Please login first to sync data to cloud", Toast.LENGTH_SHORT).show();
+            Intent loginIntent = new Intent(this, LoginActivity.class);
+            startActivity(loginIntent);
+            return;
+        }
+
+        if (cloudSyncService == null) {
+            Toast.makeText(this, "Cloud sync service not initialized", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        recordLog("[Manual Sync] Start manual cloud sync");
+        if (syncStatusText != null) {
+            syncStatusText.setText("Syncing to cloud...");
+        }
+
+        if (uploadProgressBar != null) {
+            uploadProgressBar.setVisibility(View.VISIBLE);
+            uploadProgressBar.setProgress(0);
+        }
+
+        if (manualSyncButton != null) {
+            manualSyncButton.setEnabled(false);
+            manualSyncButton.setText("Syncing...");
+        }
+
+        // 获取用户信息
+        String userName = getCurrentUserName();
+        String userDescription = getCurrentUserDescription();
+
+        if (userName.isEmpty()) {
+            Toast.makeText(this, "Please set user name first in the form below", Toast.LENGTH_LONG).show();
+            if (manualSyncButton != null) {
+                manualSyncButton.setEnabled(true);
+                manualSyncButton.setText("Manual Sync");
+            }
+            return;
+        }
+
+        // 使用真实的CloudSyncService进行上传
+        cloudSyncService.uploadAllFiles(userName, userDescription, new CloudSyncService.UploadProgressCallback() {
+            @Override
+            public void onProgress(int current, int total, String fileName) {
+                mainHandler.post(() -> {
+                    if (uploadProgressBar != null) {
+                        int progress = (int) ((current * 100.0) / total);
+                        uploadProgressBar.setProgress(progress);
+                    }
+                    if (syncStatusText != null) {
+                        syncStatusText.setText(String.format("Uploading %s (%d/%d)", fileName, current, total));
+                    }
+                });
+                recordLog(String.format("[Manual Sync] Progress: %d/%d - %s", current, total, fileName));
+            }
+
+            @Override
+            public void onFileCompleted(String fileName, boolean success, String message) {
+                recordLog(String.format("[Manual Sync] File %s: %s - %s",
+                    fileName, success ? "SUCCESS" : "FAILED", message));
+            }
+
+            @Override
+            public void onAllCompleted(int uploaded, int failed) {
+                mainHandler.post(() -> {
+                    recordLog(String.format("[Manual Sync] Completed - Uploaded: %d, Failed: %d", uploaded, failed));
+
+                    if (syncStatusText != null) {
+                        if (failed == 0) {
+                            syncStatusText.setText(String.format("Sync completed, %d files uploaded successfully", uploaded));
+                        } else {
+                            syncStatusText.setText(String.format("Sync completed, %d succeeded, %d failed", uploaded, failed));
+                        }
+                    }
+
+                    if (uploadProgressBar != null) {
+                        uploadProgressBar.setVisibility(View.GONE);
+                    }
+
+                    if (manualSyncButton != null) {
+                        manualSyncButton.setEnabled(true);
+                        manualSyncButton.setText("Manual Sync");
+                    }
+
+                    // 刷新文件统计
+                    updateFileStatistics();
+
+                    String toastMessage = uploaded > 0 ?
+                        String.format("Successfully uploaded %d files", uploaded) :
+                        "No files to upload";
+                    if (failed > 0) {
+                        toastMessage += String.format(", %d failed", failed);
+                    }
+                    Toast.makeText(MainActivity.this, toastMessage, Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
+
+    /**
+     * 打开云端数据查看器
+     */
+    private void openCloudDataViewer() {
+        if (!cloudConfig.isConfigValid()) {
+            Toast.makeText(this, "Cloud config invalid", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String webUrl = cloudConfig.getServerUrl().replace("/api", "");
+        recordLog("[Cloud Data Viewer] Opening web interface: " + webUrl);
+
+        // 简单的Web查看方式，实际可以用WebView或外部浏览器
+        Toast.makeText(this, "Cloud data viewer will be implemented after web frontend is complete", Toast.LENGTH_SHORT).show();
+
+        // TODO: 实际实现中可以这样打开浏览器
+        // Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(webUrl));
+        // startActivity(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 页面回到前台时刷新云端同步状态和登出按钮
+        updateCloudSyncStatus();
+        updateLogoutButtonVisibility();
     }
 
     // ==================== Utility Methods ====================
@@ -2424,5 +2698,80 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
 
         recordLog("MainActivity destroyed, resources cleaned up");
+    }
+
+    // ==================== 用户信息管理 ====================
+
+    /**
+     * 加载已保存的用户信息
+     */
+    private void loadUserInfo() {
+        String userName = userInfoPrefs.getString("user_name", "");
+        String userDescription = userInfoPrefs.getString("user_description", "");
+
+        userNameEditText.setText(userName);
+        userDescriptionEditText.setText(userDescription);
+    }
+
+    /**
+     * 保存用户信息
+     */
+    private void saveUserInfo() {
+        String userName = userNameEditText.getText().toString().trim();
+        String userDescription = userDescriptionEditText.getText().toString().trim();
+
+        if (userName.isEmpty()) {
+            Toast.makeText(this, "User name is required", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        SharedPreferences.Editor editor = userInfoPrefs.edit();
+        editor.putString("user_name", userName);
+        editor.putString("user_description", userDescription);
+        editor.apply();
+
+        Toast.makeText(this, "User information saved successfully", Toast.LENGTH_SHORT).show();
+        recordLog("User info saved: " + userName + " - " + userDescription);
+    }
+
+    /**
+     * 获取当前用户名
+     */
+    public String getCurrentUserName() {
+        return userInfoPrefs.getString("user_name", "");
+    }
+
+    /**
+     * 获取当前用户描述
+     */
+    public String getCurrentUserDescription() {
+        return userInfoPrefs.getString("user_description", "");
+    }
+
+    // ==================== 登出功能 ====================
+
+    /**
+     * 更新登出按钮的可见性
+     */
+    private void updateLogoutButtonVisibility() {
+    }
+
+    /**
+     * 登出功能
+     */
+    private void logout() {
+        if (cloudConfig != null) {
+            // 清除登录信息
+            cloudConfig.clearLoginInfo();
+
+            // 更新UI
+            updateLogoutButtonVisibility();
+            updateCloudSyncStatus();
+
+            // 显示提示信息
+            Toast.makeText(this, "已退出登录", Toast.LENGTH_SHORT).show();
+
+            recordLog("User logged out successfully");
+        }
     }
 }

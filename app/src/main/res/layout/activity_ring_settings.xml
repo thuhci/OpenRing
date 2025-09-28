@@ -36,6 +36,18 @@
 
     </LinearLayout>
 
+    <!-- Scrollable Content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
     <!-- Current Selected Device Info -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -108,8 +120,7 @@
     <!-- Device List -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="250dp"
         android:orientation="vertical"
         android:background="@android:color/white"
         android:padding="16dp"
@@ -154,15 +165,14 @@
         <!-- Device List Container -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_height="180dp">
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/deviceListView"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scrollbars="vertical"
-                android:visibility="gone" />
+                android:visibility="visible" />
 
             <!-- Empty State Hint -->
             <LinearLayout
@@ -194,6 +204,174 @@
 
     </LinearLayout>
 
+    <!-- Cloud Sync Settings -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@android:color/white"
+        android:padding="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="☁️ Cloud Sync Settings"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Server URL Input -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Server Address"
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/serverUrlInput"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="https://your-domain.com/api"
+            android:inputType="textUri"
+            android:background="#F5F5F5"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- API Key Input -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="API Key (Optional)"
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="4dp" />
+
+        <EditText
+            android:id="@+id/apiKeyInput"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:hint="API key, leave empty to disable authentication"
+            android:inputType="textPassword"
+            android:background="#F5F5F5"
+            android:padding="12dp"
+            android:textSize="14sp"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Cloud Sync Enable Switch -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Enable Cloud Sync"
+                android:textSize="14sp"
+                android:textColor="@android:color/black" />
+
+            <Switch
+                android:id="@+id/cloudSyncSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+        </LinearLayout>
+
+        <!-- Test Connection Button -->
+        <Button
+            android:id="@+id/testConnectionButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Test Connection"
+            android:textSize="16sp"
+            android:background="#4CAF50"
+            android:textColor="@android:color/white"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Sync Options -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Sync Options"
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <Button
+                android:id="@+id/syncOfflineButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="Sync Offline Data"
+                android:textSize="12sp"
+                android:background="#2196F3"
+                android:textColor="@android:color/white" />
+
+            <Button
+                android:id="@+id/syncOnlineButton"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="Sync Online Data"
+                android:textSize="12sp"
+                android:background="#FF9800"
+                android:textColor="@android:color/white" />
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/syncAllButton"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:text="Sync All Data"
+            android:textSize="14sp"
+            android:background="#9C27B0"
+            android:textColor="@android:color/white"
+            android:layout_marginBottom="12dp" />
+
+        <!-- 登出按钮 -->
+        <Button
+            android:id="@+id/logoutButton"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:text="Logout"
+            android:textSize="14sp"
+            android:background="#F44336"
+            android:textColor="@android:color/white"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone" />
+
+        <!-- Connection Status -->
+        <TextView
+            android:id="@+id/connectionStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Connection status: Not tested"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:padding="8dp"
+            android:background="#E8F5E8" />
+
+    </LinearLayout>
+
     <!-- Help Information -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -217,11 +395,14 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="1. Make sure Bluetooth is enabled\n2. Click the scan button to search for devices\n3. Select your device from the list\n4. Return to the main screen to connect"
+            android:text="1. Make sure Bluetooth is enabled\n2. Click the scan button to search for devices\n3. Select your device from the list\n4. Configure cloud sync settings if needed\n5. Return to the main screen to connect"
             android:textSize="14sp"
             android:textColor="#666666"
             android:lineSpacingExtra="4dp" />
 
     </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
 
 </LinearLayout>
