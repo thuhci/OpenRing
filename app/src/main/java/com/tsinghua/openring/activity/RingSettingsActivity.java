@@ -61,13 +61,8 @@ public class RingSettingsActivity extends AppCompatActivity {
                 return;
             }
 
-            // Parse scanned device data
-            BleDeviceInfo bleDeviceInfo = LogicalApi.getBleDeviceInfoWhenBleScan(device, rssi, bytes, true);
-            if (bleDeviceInfo != null) {
-                Log.e("RingLog", bleDeviceInfo.getDevice().getName() + " - " + bleDeviceInfo.getDevice().getAddress());
-
-                String deviceInfo = device.getName() + " - MAC: " + device.getAddress();
-
+            String deviceInfo = device.getName() + " - MAC: " + device.getAddress();
+            if(device.getName().contains("BCL")) {
                 // Prevent duplicate device info
                 if (!deviceInfoList.contains(deviceInfo)) {
                     deviceInfoList.add(deviceInfo);

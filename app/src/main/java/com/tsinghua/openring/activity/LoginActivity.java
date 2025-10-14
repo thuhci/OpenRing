@@ -3,6 +3,7 @@ package com.tsinghua.openring.activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -245,6 +246,7 @@ public class LoginActivity extends AppCompatActivity {
                         setLoading(false);
                         try {
                             String responseBody = response.body().string();
+                            Log.e("TAG",responseBody);
                             JSONObject jsonResponse = new JSONObject(responseBody);
 
                             if (response.isSuccessful()) {
@@ -268,7 +270,7 @@ public class LoginActivity extends AppCompatActivity {
                                 showError(message);
                             }
                         } catch (JSONException e) {
-                            showError("响应解析错误");
+                            showError("响应解析错误"+e.toString());
                         } catch (IOException e) {
                             showError("读取响应失败");
                         }
@@ -348,7 +350,7 @@ public class LoginActivity extends AppCompatActivity {
                                 showError(message);
                             }
                         } catch (JSONException e) {
-                            showError("响应解析错误");
+                            showError("响应解析错误"+e);
                         } catch (IOException e) {
                             showError("读取响应失败");
                         }
