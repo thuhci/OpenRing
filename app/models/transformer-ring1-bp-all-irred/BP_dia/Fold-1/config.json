@@ -1,0 +1,17 @@
+{
+  "model_name": "transformer-ring1-bp-all-irred",
+  "mission": "BP_dia",
+  "fold": 1,
+  "dataset": {
+    "window_duration": 5,
+    "target_fs": 100,
+    "input_channels": 2,
+    "sample_rate": 25
+  },
+  "model": {
+    "type": "transformer",
+    "input_dim": 2,
+    "output_dim": 1
+  }
+}
+

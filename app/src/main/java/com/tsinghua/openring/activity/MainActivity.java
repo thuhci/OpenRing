@@ -42,7 +42,9 @@ import com.lm.sdk.utils.GlobalParameterUtils;
 import com.tsinghua.openring.R;
 import com.tsinghua.openring.PlotView;
 import com.tsinghua.openring.utils.BLEService;
+import com.tsinghua.openring.inference.ModelInferenceManager;
 import com.tsinghua.openring.utils.NotificationHandler;
+import com.tsinghua.openring.utils.VitalSignsProcessor;
 import com.tsinghua.openring.utils.CloudConfig;
 import com.tsinghua.openring.utils.CloudSyncService;
 
@@ -128,6 +130,22 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private PlotView plotViewGyroX, plotViewGyroY, plotViewGyroZ;
     private PlotView plotViewTemp0, plotViewTemp1, plotViewTemp2;
     private boolean isMeasuring = false;
+
+    // Vital Signs Processor
+    private VitalSignsProcessor vitalSignsProcessor;
+    private ModelInferenceManager modelInferenceManager;
+    private VitalSignsProcessor.SignalQuality currentSignalQuality = VitalSignsProcessor.SignalQuality.NO_SIGNAL;
+
+    // HR/RR Display Components
+    private TextView heartRateValue;
+    private TextView bpSysValue;
+    private TextView bpDiaValue;
+    private TextView spo2Value;
+    private TextView rrValue;
+    // Removed secondary numeric TextView; right column shows waveform plot
+    private TextView signalQualityIndicator;
+    private TextView lastUpdateTime;
+    private PlotView plotViewHRWave;
 
     // File Operation Related
     private List<FileInfo> fileList = new ArrayList<>();
@@ -386,6 +404,16 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         plotViewTemp0 = findViewById(R.id.plotViewTemp0);
         plotViewTemp1 = findViewById(R.id.plotViewTemp1);
         plotViewTemp2 = findViewById(R.id.plotViewTemp2);
+        plotViewHRWave = findViewById(R.id.plotViewHRWave);
+
+        // Initialize Vital Signs Display Views
+        heartRateValue = findViewById(R.id.heartRateValue);
+        bpSysValue = findViewById(R.id.bpSysValue);
+        bpDiaValue = findViewById(R.id.bpDiaValue);
+        spo2Value = findViewById(R.id.spo2Value);
+        rrValue = findViewById(R.id.rrValue);
+        signalQualityIndicator = findViewById(R.id.signalQualityIndicator);
+        lastUpdateTime = findViewById(R.id.lastUpdateTime);
 
         // Initialize Cloud Sync components
         cloudSyncIndicator = findViewById(R.id.cloudSyncIndicator);
@@ -400,6 +428,132 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         // Initialize CloudConfig and CloudSyncService
         cloudConfig = new CloudConfig(this);
         cloudSyncService = new CloudSyncService(this);
+
+        // Initialize Vital Signs Processor
+        vitalSignsProcessor = new VitalSignsProcessor(new VitalSignsProcessor.VitalSignsCallback() {
+            @Override
+            public void onHeartRateUpdate(int heartRate) {
+                // VitalSignsProcessor 的心率计算仅用于实时显示
+                // 实际模型推理在 ModelInferenceManager 中进行
+            }
+
+            @Override
+            public void onSignalQualityUpdate(VitalSignsProcessor.SignalQuality quality) {
+                currentSignalQuality = quality;
+                mainHandler.post(() -> {
+                    if (signalQualityIndicator != null) {
+                        signalQualityIndicator.setText(quality.getDisplayName());
+                        int color = Color.parseColor(quality.getColor());
+                        signalQualityIndicator.setTextColor(color);
+                    }
+
+                    // 当信号质量为 POOR 或 NO_SIGNAL 时，清空所有生理指标显示
+                    if (quality == VitalSignsProcessor.SignalQuality.POOR ||
+                        quality == VitalSignsProcessor.SignalQuality.NO_SIGNAL) {
+                        if (heartRateValue != null) heartRateValue.setText("--");
+                        if (bpSysValue != null) bpSysValue.setText("--");
+                        if (bpDiaValue != null) bpDiaValue.setText("--");
+                        if (spo2Value != null) spo2Value.setText("--");
+                        if (rrValue != null) rrValue.setText("--");
+                        recordLog("Signal Quality Poor - Clearing all vital signs display");
+                    }
+
+                    recordLog("Signal Quality: " + quality.getDisplayName());
+                });
+            }
+        });
+        NotificationHandler.setVitalSignsProcessor(vitalSignsProcessor);
+
+        // Initialize transformer inference manager
+        modelInferenceManager = new ModelInferenceManager(getApplicationContext(), new ModelInferenceManager.Listener() {
+            @Override
+            public void onHrPredicted(int bpm) {
+                mainHandler.post(() -> {
+                    // 只在信号质量良好时更新显示
+                    if (isSignalQualityGood() && heartRateValue != null) {
+                        heartRateValue.setText(String.valueOf(bpm));
+                        updateLastUpdateTime();
+                        recordLog("[Model] HR: " + bpm + " BPM");
+                    } else {
+                        recordLog("[Model] HR: " + bpm + " BPM (not displayed - signal quality poor)");
+                    }
+                });
+            }
+
+            @Override
+            public void onBpSysPredicted(int mmHg) {
+                mainHandler.post(() -> {
+                    // 只在信号质量良好时更新显示
+                    if (isSignalQualityGood() && bpSysValue != null) {
+                        bpSysValue.setText(String.valueOf(mmHg));
+                        recordLog("[Model] BP_SYS: " + mmHg + " mmHg");
+                    } else {
+                        recordLog("[Model] BP_SYS: " + mmHg + " mmHg (not displayed - signal quality poor)");
+                    }
+                });
+            }
+
+            @Override
+            public void onBpDiaPredicted(int mmHg) {
+                mainHandler.post(() -> {
+                    // 只在信号质量良好时更新显示
+                    if (isSignalQualityGood() && bpDiaValue != null) {
+                        bpDiaValue.setText(String.valueOf(mmHg));
+                        recordLog("[Model] BP_DIA: " + mmHg + " mmHg");
+                    } else {
+                        recordLog("[Model] BP_DIA: " + mmHg + " mmHg (not displayed - signal quality poor)");
+                    }
+                });
+            }
+
+            @Override
+            public void onSpo2Predicted(int percent) {
+                mainHandler.post(() -> {
+                    // 只在信号质量良好时更新显示
+                    if (isSignalQualityGood() && spo2Value != null) {
+                        spo2Value.setText(String.valueOf(percent));
+                        recordLog("[Model] SpO2: " + percent + "%");
+                    } else {
+                        recordLog("[Model] SpO2: " + percent + "% (not displayed - signal quality poor)");
+                    }
+                });
+            }
+
+            @Override
+            public void onRrPredicted(int brpm) {
+                mainHandler.post(() -> {
+                    // 只在信号质量良好时更新显示
+                    if (isSignalQualityGood() && rrValue != null) {
+                        rrValue.setText(String.valueOf(brpm));
+                        recordLog("[Model] RR: " + brpm + " brpm");
+                    } else {
+                        recordLog("[Model] RR: " + brpm + " brpm (not displayed - signal quality poor)");
+                    }
+                });
+            }
+
+            @Override
+            public void onDebugLog(String message) {
+                recordLog("[Model] " + message);
+            }
+        });
+        modelInferenceManager.init();
+        NotificationHandler.setInferenceManager(modelInferenceManager);
+        // Log model loading status to UI logs
+        try {
+            String status = modelInferenceManager.reportStatus();
+            for (String line : status.split("\n")) {
+                if (!line.trim().isEmpty()) recordLog(line);
+            }
+            // 显示日志文件路径
+            String logPath = ModelInferenceManager.getLogFilePath();
+            if (logPath != null) {
+                recordLog("Model Inference日志文件: " + logPath);
+                recordLog("使用命令拉取日志: adb pull " + logPath + " ./");
+            }
+        } catch (Exception e) {
+            recordLog("Error reporting model status: " + e.getMessage());
+        }
 
         // Set PlotView colors
         setupPlotViewColors();
@@ -441,6 +595,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         if (plotViewTemp0 != null) plotViewTemp0.setPlotColor(Color.parseColor("#FFA726"));
         if (plotViewTemp1 != null) plotViewTemp1.setPlotColor(Color.parseColor("#FF7043"));
         if (plotViewTemp2 != null) plotViewTemp2.setPlotColor(Color.parseColor("#FF5722"));
+        if (plotViewHRWave != null) plotViewHRWave.setPlotColor(Color.parseColor("#FF4444"));
     }
 
     private void setDefaultValues() {
@@ -459,6 +614,7 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         NotificationHandler.setPlotViewG(plotViewG);
         NotificationHandler.setPlotViewI(plotViewI);
         NotificationHandler.setPlotViewR(plotViewR);
+        NotificationHandler.setPlotViewHRWave(plotViewHRWave);
         NotificationHandler.setPlotViewX(plotViewX);
         NotificationHandler.setPlotViewY(plotViewY);
         NotificationHandler.setPlotViewZ(plotViewZ);
@@ -1310,6 +1466,11 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             isMeasuring = true;
             clearAllPlots();
 
+            if (modelInferenceManager != null) {
+                modelInferenceManager.reset();
+            }
+            clearVitalSignsDisplay();
+
             NotificationHandler.setMeasurementTime(measurementTime);
             updateMeasurementUI(true);
             updateMeasurementStatus("Measuring... (0/" + measurementTime + "s)");
@@ -1337,6 +1498,13 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             if (measurementTimer != null) {
                 measurementTimer.cancel();
                 measurementTimer = null;
+            }
+
+            // Clear HR/RR display values
+            clearVitalSignsDisplay();
+
+            if (modelInferenceManager != null) {
+                modelInferenceManager.reset();
             }
 
             updateMeasurementUI(false);
@@ -1504,6 +1672,38 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         if (plotViewTemp0 != null) plotViewTemp0.clearPlot();
         if (plotViewTemp1 != null) plotViewTemp1.clearPlot();
         if (plotViewTemp2 != null) plotViewTemp2.clearPlot();
+        if (plotViewHRWave != null) plotViewHRWave.clearPlot();
+    }
+
+    private void clearVitalSignsDisplay() {
+        mainHandler.post(() -> {
+            if (heartRateValue != null) heartRateValue.setText("--");
+            if (bpSysValue != null) bpSysValue.setText("--");
+            if (bpDiaValue != null) bpDiaValue.setText("--");
+            if (spo2Value != null) spo2Value.setText("--");
+            if (rrValue != null) rrValue.setText("--");
+            if (lastUpdateTime != null) lastUpdateTime.setText("--:--:--");
+            if (signalQualityIndicator != null) {
+                signalQualityIndicator.setText("No Signal");
+                signalQualityIndicator.setTextColor(Color.parseColor("#9E9E9E"));
+            }
+        });
+    }
+
+    private void updateLastUpdateTime() {
+        if (lastUpdateTime != null) {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault());
+            lastUpdateTime.setText(sdf.format(new java.util.Date()));
+        }
+    }
+
+    /**
+     * 检查当前信号质量是否良好（可以显示生理指标）
+     * @return true 如果信号质量为 EXCELLENT、GOOD 或 FAIR
+     */
+    private boolean isSignalQualityGood() {
+        return currentSignalQuality != VitalSignsProcessor.SignalQuality.POOR &&
+               currentSignalQuality != VitalSignsProcessor.SignalQuality.NO_SIGNAL;
     }
 
     // ==================== Time Sync Functions ====================
@@ -1640,9 +1840,13 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                     else if (subcmd == 0x13){
                         recordLog("Identified as format file system response");
                     }
-                }else if(cmd == 0x12){
+                } else if (cmd == 0x12) {
                     recordLog("Identified as battery level response");
                     handleBatteryLevelResponse(data);
+                } else if (cmd == 0x3C) {
+                    // Real-time measurement data - delegate to NotificationHandler
+                    String result = NotificationHandler.handleNotification(data);
+                    recordLog("Received data: " + result);
                 }
 
             }
@@ -2675,6 +2879,8 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     @Override
     protected void onDestroy() {
+        // 关闭模型推理日志文件
+        ModelInferenceManager.closeFileLogging();
         super.onDestroy();
 
         // Clean up resources

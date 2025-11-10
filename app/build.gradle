@@ -42,6 +42,12 @@ android {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
+    sourceSets {
+        main {
+            // 将 models 目录添加到 assets 源目录
+            assets.srcDirs = ['src/main/assets', 'models']
+        }
+    }
 }
 
 dependencies {
@@ -142,5 +148,9 @@ dependencies {
 
     // system浮窗需要使用compose时
     implementation 'io.github.petterpx:floatingx-compose:2.3.2'
+
+    // PyTorch Android (用于模型推理) - 升级到 2.x 支持 scaled_dot_product_attention
+    implementation 'org.pytorch:pytorch_android:2.1.0'
+    implementation 'org.pytorch:pytorch_android_torchvision:2.1.0'
 
 }
