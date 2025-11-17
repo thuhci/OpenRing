@@ -18,6 +18,11 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // 只保留 ARM 64位架构，减小 APK 体积
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
     }
     packagingOptions {
         // for AGP 7.0+ syntax

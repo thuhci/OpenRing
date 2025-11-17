@@ -611,6 +611,7 @@ public class NotificationHandler {
         return exerciseConfig.getTotalSegments();
     }
 
+
     /**
      * Little endian read 4-byte unsigned integer
      */
@@ -661,7 +662,6 @@ public class NotificationHandler {
         int frameId = data[1] & 0xFF;
         int cmd = data[2] & 0xFF;
         int subcmd = data[3] & 0xFF;
-
 
         // Time calibration handling (Cmd = 0x10)
         if (cmd == 0x10) {
@@ -893,9 +893,14 @@ public class NotificationHandler {
 
             case 0x01: // Real-time data or time response
                 if (data.length == 13) {
-                    // Time response packet
-                    return handleTimeResponse(data, frameId);
-                } else if (data.length > 14) {
+                    // 13-byte packet: measurement start timestamp confirmation
+                    // This is sent by the ring after starting measurement to confirm the start time
+                    long timestamp = readUInt64LE(data, 4);
+                    int timezone = data[12] & 0xFF;
+                    recordLog(String.format("[Measurement Start Timestamp] timestamp=%d (%s), timezone=%d",
+                        timestamp, formatTimestamp(timestamp), timezone));
+                    return String.format("Measurement started at %s", formatTimestamp(timestamp));
+                } else if (data.length >= 14) {
                     // Real-time waveform data packet
                     return handleRealtimeWaveformData(data, frameId);
                 } else {

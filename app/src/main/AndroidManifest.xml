@@ -38,6 +38,8 @@
         <activity android:name=".activity.RingSettingsActivity"/>
         <activity android:name=".activity.LoginActivity"
             android:theme="@style/Theme.OpenRing.NoActionBar" />
+        <activity android:name=".activity.ModelSelectionActivity"/>
+        <activity android:name=".activity.HistoryViewActivity"/>
 
 
     </application>

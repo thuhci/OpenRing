@@ -663,6 +663,16 @@
 
                         </LinearLayout>
 
+                        <Button
+                            android:id="@+id/modelSelectionButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Model Selection"
+                            android:textSize="14sp"
+                            android:layout_marginTop="12dp"
+                            android:background="@drawable/button_gray_bg"
+                            android:textColor="@android:color/black" />
+
                     </LinearLayout>
 
                 </com.google.android.material.card.MaterialCardView>
@@ -1369,6 +1379,50 @@
                                 android:background="@color/dark_gray" />
 
                         </LinearLayout>
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- History Records Section -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="History Records"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/black"
+                            android:layout_marginBottom="12dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="View your past measurement records"
+                            android:textSize="14sp"
+                            android:textColor="@android:color/darker_gray"
+                            android:layout_marginBottom="16dp" />
+
+                        <Button
+                            android:id="@+id/viewHistoryButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="View History"
+                            android:textSize="14sp"
+                            android:background="@drawable/button_gray_bg"
+                            android:textColor="@android:color/black" />
 
                     </LinearLayout>
 

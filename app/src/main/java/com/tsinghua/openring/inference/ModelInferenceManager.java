@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import android.os.Environment;
+import com.tsinghua.openring.utils.SignalFilters;
 
 public class ModelInferenceManager {
     public enum Mission { HR, BP_SYS, BP_DIA, SPO2, RR }
@@ -45,13 +46,16 @@ public class ModelInferenceManager {
     private final Map<Mission, List<Module>> missionModules = new HashMap<>();
     private final Map<Mission, JsonNode> missionConfigs = new HashMap<>();
 
+    private ModelSelectionConfig modelSelectionConfig;
+
     private final int sampleRateHz = 25;
-    private int windowSeconds = 5;  // HR/BP/SpO2 使用 5 秒窗口
-    private static final int RR_WINDOW_SECONDS_OVERRIDE = 15;
-    private int windowSecondsRR = RR_WINDOW_SECONDS_OVERRIDE;  // 默认 15 秒窗口，可根据需求覆盖
+    private int windowSeconds = 30;  // 所有模型统一使用 30 秒窗口（与 androidring 一致）
+    private static final int RR_WINDOW_SECONDS_OVERRIDE = 30;
+    private int windowSecondsRR = RR_WINDOW_SECONDS_OVERRIDE;  // RR 也使用 30 秒窗口
     private int targetFs = 100;
 
     private final ArrayDeque<Float> greenBuf = new ArrayDeque<>();
+    private final ArrayDeque<Float> redBuf = new ArrayDeque<>();   // 添加 Red 通道缓冲区
     private final ArrayDeque<Float> irBuf = new ArrayDeque<>();
     // RR 专用缓冲区（需要更长的数据窗口）
     private final ArrayDeque<Float> irBufRR = new ArrayDeque<>();
@@ -61,7 +65,11 @@ public class ModelInferenceManager {
     private static final long INFERENCE_INTERVAL_MS_RR = 5000; // 5秒 (RR)
     private long lastInferenceTimeMs = 0;
     private long lastInferenceTimeMsRR = 0;
-    
+
+    // 最小数据要求：至少需要5秒的数据才开始推理（避免过少数据影响精度）
+    private static final int MIN_SECONDS_FOR_INFERENCE = 5;
+    private static final int MIN_SECONDS_FOR_RR_INFERENCE = 15;
+
     // 平滑滤波器：存储最近N次预测结果
     private static final int SMOOTHING_WINDOW_SIZE = 5; // 使用最近5次结果
     private final ArrayDeque<Integer> hrHistory = new ArrayDeque<>();
@@ -79,6 +87,7 @@ public class ModelInferenceManager {
     public ModelInferenceManager(Context context, Listener listener) {
         this.appContext = context.getApplicationContext();
         this.listener = listener;
+        this.modelSelectionConfig = new ModelSelectionConfig(); // Initialize with default config
         initializeFileLogging();
     }
     
@@ -156,6 +165,30 @@ public class ModelInferenceManager {
         return logFile != null ? logFile.getAbsolutePath() : null;
     }
 
+    /**
+     * Update model selection configuration (must be called before init)
+     */
+    public void setModelSelectionConfig(ModelSelectionConfig config) {
+        if (config != null) {
+            this.modelSelectionConfig = config;
+            logDebug("Model selection config updated");
+        }
+    }
+
+    /**
+     * Reload models (called when configuration changes)
+     */
+    public void reloadModels() {
+        logDebug("Reloading models with new configuration");
+
+        // Clear existing models
+        missionModules.clear();
+        missionConfigs.clear();
+
+        // Re-initialize
+        init();
+    }
+
     public void init() {
         logDebug("ModelInferenceManager.init() called");
         logDebug("Listener is " + (listener == null ? "null" : listener.getClass().getName()));
@@ -203,11 +236,21 @@ public class ModelInferenceManager {
         }
 
         // Try load five missions. Assets are mapped to app/models/** by Gradle.
-        loadMission(Mission.HR, findFirstMissionRoot("hr"));
+        ModelArchitecture.ClassicAlgorithmType hrClassicMode = getClassicAlgorithm(Mission.HR);
+        if (hrClassicMode != ModelArchitecture.ClassicAlgorithmType.NONE) {
+            logDebug("Mission HR configured for classic algorithm (" + hrClassicMode + ") - skipping model loading.");
+        } else {
+            loadMission(Mission.HR, findFirstMissionRoot("hr"));
+        }
         loadMission(Mission.BP_SYS, findFirstMissionRoot("BP_sys"));
         loadMission(Mission.BP_DIA, findFirstMissionRoot("BP_dia"));
         loadMission(Mission.SPO2, findFirstMissionRoot("spo2"));
-        loadMission(Mission.RR, findFirstMissionRoot("rr"));
+        ModelArchitecture.ClassicAlgorithmType rrClassicMode = getClassicAlgorithm(Mission.RR);
+        if (rrClassicMode != ModelArchitecture.ClassicAlgorithmType.NONE) {
+            logDebug("Mission RR configured for classic algorithm (" + rrClassicMode + ") - skipping model loading.");
+        } else {
+            loadMission(Mission.RR, findFirstMissionRoot("rr"));
+        }
 
         inferWindowAndTargetFs();
         logDebug("Initialized. WindowSeconds=" + windowSeconds + ", targetFs=" + targetFs);
@@ -222,7 +265,7 @@ public class ModelInferenceManager {
             if (dataset == null) continue;
 
             if (mission == Mission.RR) {
-                // 即便配置文件为 30s，这里固定使用 15s，兼顾响应速度与周期覆盖
+                // RR 使用固定的 30秒窗口
                 windowSecondsRR = RR_WINDOW_SECONDS_OVERRIDE;
             } else {
                 if (dataset.has("window_duration")) {
@@ -240,54 +283,78 @@ public class ModelInferenceManager {
                 } catch (Exception ignored) {}
             }
         }
-        logDebug("Window seconds (HR/BP/SpO2)=" + windowSeconds + ", RR=" + windowSecondsRR + " (override), targetFs=" + targetFs);
+        logDebug("Window seconds (all models)=" + windowSeconds + "s, targetFs=" + targetFs + "Hz");
     }
 
     private String findFirstMissionRoot(String missionKey) {
-        // Known roots under assets (mapped from app/models): try common patterns
-        // Assets are packaged with 'models' as a source root, but the AssetManager paths are root-relative.
-        String[] roots;
-        
-        // 根据missionKey选择不同的路径模式
-        if ("hr".equals(missionKey)) {
-            roots = new String[] {
-                    "transformer-ring1-hr-all-ir/hr",
-                    "transformer-ring1-hr-all-irred/hr"
-            };
-        } else if ("BP_sys".equals(missionKey) || "BP_dia".equals(missionKey)) {
-            roots = new String[] {
-                    "transformer-ring1-bp-all-irred/" + missionKey
-            };
-        } else if ("spo2".equals(missionKey)) {
-            roots = new String[] {
-                    "transformer-ring1-spo2-all-irred/spo2"
-            };
-        } else if ("rr".equals(missionKey)) {
-            roots = new String[] {
-                    "resnet-ring1-rr-all-ir/resp_rr"
-            };
-        } else {
-            roots = new String[] {};
+        // Get Mission enum for this task
+        Mission mission = getMissionFromKey(missionKey);
+        if (mission == null) {
+            logDebug("Unknown mission key: " + missionKey);
+            return null;
         }
-        
-        logDebug("Searching for mission root: " + missionKey);
+
+        // Get selected architecture for this task
+        ModelArchitecture selectedArch = modelSelectionConfig.getArchitecture(mission);
+        logDebug("Mission " + mission + " uses architecture: " + selectedArch);
+        if (selectedArch != null && selectedArch.isClassicAlgorithm()) {
+            logDebug("Mission " + mission + " uses classic algorithm (" + selectedArch.getDisplayName() + ") - no assets required");
+            return null;
+        }
+
+        // Build possible paths based on architecture and task
+        List<String> roots = new ArrayList<>();
+
+        switch (selectedArch) {
+            case TRANSFORMER:
+                if ("hr".equals(missionKey)) {
+                    roots.add("transformer-ring1-hr-all-ir/hr");
+                    roots.add("transformer-ring1-hr-all-irred/hr");
+                } else if ("BP_sys".equals(missionKey) || "BP_dia".equals(missionKey)) {
+                    roots.add("transformer-ring1-bp-all-irred/" + missionKey);
+                } else if ("spo2".equals(missionKey)) {
+                    roots.add("transformer-ring1-spo2-all-irred/spo2");
+                } else if ("rr".equals(missionKey)) {
+                    roots.add("transformer-ring1-rr-all-ir/resp_rr");
+                    roots.add("transformer-ring1-rr-all-irred/resp_rr");
+                }
+                break;
+
+            case RESNET:
+                if ("hr".equals(missionKey)) {
+                    roots.add("resnet-ring1-hr-all-ir/hr");
+                    roots.add("resnet-ring1-hr-all-irred/hr");
+                } else if ("BP_sys".equals(missionKey) || "BP_dia".equals(missionKey)) {
+                    roots.add("resnet-ring1-bp-all-irred/" + missionKey);
+                } else if ("spo2".equals(missionKey)) {
+                    roots.add("resnet-ring1-spo2-all-irred/spo2");
+                } else if ("rr".equals(missionKey)) {
+                    roots.add("resnet-ring1-rr-all-ir/resp_rr");
+                }
+                break;
+
+            case INCEPTION:
+                if ("hr".equals(missionKey)) {
+                    roots.add("inception-ring1-hr-all-ir/hr");
+                    roots.add("inception-ring1-hr-all-irred/hr");
+                } else if ("BP_sys".equals(missionKey) || "BP_dia".equals(missionKey)) {
+                    roots.add("inception-ring1-bp-all-irred/" + missionKey);
+                } else if ("spo2".equals(missionKey)) {
+                    roots.add("inception-ring1-spo2-all-irred/spo2");
+                } else if ("rr".equals(missionKey)) {
+                    roots.add("inception-ring1-rr-all-ir/resp_rr");
+                }
+                break;
+        }
+
+        logDebug("Searching for mission root: " + missionKey + " with architecture: " + selectedArch);
         for (String r : roots) {
             try {
                 logDebug("Trying root path: " + r);
                 String[] files = appContext.getAssets().list(r);
                 if (files != null && files.length > 0) {
-                    logDebug("Root path exists: " + r + " (" + files.length + " entries)");
-                    // 验证路径匹配
-                    boolean matches = r.endsWith("/" + missionKey) || 
-                                     (missionKey.equals("hr") && r.endsWith("/hr")) ||
-                                     (missionKey.equals("spo2") && r.endsWith("/spo2")) ||
-                                     (missionKey.equals("rr") && r.contains("rr-all-ir"));
-                    if (matches) {
-                        logDebug("Mission root candidate success: " + r + " (" + files.length + " entries)");
-                        return r;
-                    } else {
-                        logDebug("Root path doesn't match missionKey: " + r + " (expected ends with /" + missionKey + ")");
-                    }
+                    logDebug("Mission root candidate success: " + r + " (" + files.length + " entries)");
+                    return r;
                 } else {
                     logDebug("Mission root candidate empty or not found: " + r);
                 }
@@ -295,7 +362,16 @@ public class ModelInferenceManager {
                 logDebug("IOException checking root " + r + ": " + e.getMessage());
             }
         }
-        logDebug("Mission root not found for key: " + missionKey);
+        logDebug("Mission root not found for key: " + missionKey + " with architecture: " + selectedArch);
+        return null;
+    }
+
+    private Mission getMissionFromKey(String missionKey) {
+        if ("hr".equals(missionKey)) return Mission.HR;
+        if ("BP_sys".equals(missionKey)) return Mission.BP_SYS;
+        if ("BP_dia".equals(missionKey)) return Mission.BP_DIA;
+        if ("spo2".equals(missionKey)) return Mission.SPO2;
+        if ("rr".equals(missionKey)) return Mission.RR;
         return null;
     }
 
@@ -432,11 +508,13 @@ public class ModelInferenceManager {
     }
 
     public synchronized void onSensorData(long green, long red, long ir, short accX, short accY, short accZ, long timestampMs) {
-        // Buffer for HR/BP/SpO2 (5 seconds)
+        // Buffer for HR/BP/SpO2 (30 seconds)
         greenBuf.addLast((float) green);
+        redBuf.addLast((float) red);   // 添加 Red 数据到缓冲区
         irBuf.addLast((float) ir);
         int maxSize = windowSeconds * sampleRateHz;
         while (greenBuf.size() > maxSize) greenBuf.removeFirst();
+        while (redBuf.size() > maxSize) redBuf.removeFirst();   // 维护 Red 缓冲区大小
         while (irBuf.size() > maxSize) irBuf.removeFirst();
 
         // Buffer for RR (15 seconds)
@@ -446,26 +524,31 @@ public class ModelInferenceManager {
 
         // 调试：每100个样本记录一次缓冲区状态
         if (greenBuf.size() % 100 == 0 && greenBuf.size() > 0) {
-            logDebug("Buffer: HR/BP/SpO2=" + greenBuf.size() + "/" + maxSize + 
-                    ", RR=" + irBufRR.size() + "/" + maxSizeRR + " samples");
+            logDebug("Buffer: HR/BP/SpO2=" + greenBuf.size() + "/" + maxSize +
+                    ", RR=" + irBufRR.size() + "/" + maxSizeRR + " samples" +
+                    " (RR needs " + (MIN_SECONDS_FOR_RR_INFERENCE * sampleRateHz) + " samples to start)");
         }
 
-        // HR/BP/SpO2 推理：5秒窗口，每2秒推理一次
-        if (greenBuf.size() >= maxSize && irBuf.size() >= maxSize) {
+        // HR/BP/SpO2 推理：至少需要5秒数据，每2秒推理一次
+        int minSize = MIN_SECONDS_FOR_INFERENCE * sampleRateHz;  // 5秒 × 25Hz = 125个样本
+        if (greenBuf.size() >= minSize && irBuf.size() >= minSize && redBuf.size() >= minSize) {
             long currentTime = System.currentTimeMillis();
             if (currentTime - lastInferenceTimeMs >= INFERENCE_INTERVAL_MS) {
                 lastInferenceTimeMs = currentTime;
-                logDebug("HR/BP/SpO2 buffer full, starting inference.");
+                int actualSeconds = Math.min(Math.min(greenBuf.size(), redBuf.size()), irBuf.size()) / sampleRateHz;
+                logDebug("HR/BP/SpO2 inference with " + actualSeconds + "s data (target: " + windowSeconds + "s)");
                 runHrBpSpo2Missions();
             }
         }
-        
-        // RR 推理：15秒窗口，每5秒推理一次
-        if (irBufRR.size() >= maxSizeRR) {
+
+        // RR 推理：至少需要15秒数据，每5秒推理一次
+        int minSizeRR = MIN_SECONDS_FOR_RR_INFERENCE * sampleRateHz;  // 15秒 × 25Hz = 375个样本
+        if (irBufRR.size() >= minSizeRR) {
             long currentTime = System.currentTimeMillis();
             if (currentTime - lastInferenceTimeMsRR >= INFERENCE_INTERVAL_MS_RR) {
                 lastInferenceTimeMsRR = currentTime;
-                logDebug("RR buffer full, starting inference.");
+                int actualSeconds = irBufRR.size() / sampleRateHz;
+                logDebug("RR inference with " + actualSeconds + "s data (target: " + windowSecondsRR + "s)");
                 runRRMission();
             }
         }
@@ -476,6 +559,7 @@ public class ModelInferenceManager {
      */
     public synchronized void reset() {
         greenBuf.clear();
+        redBuf.clear();   // 清空 Red 缓冲区
         irBuf.clear();
         irBufRR.clear();
 
@@ -493,8 +577,8 @@ public class ModelInferenceManager {
 
     private void runHrBpSpo2Missions() {
         long startTime = System.currentTimeMillis();
-        
-        // Prepare input tensor [1, T, C] with C=2 (green, ir)
+
+        // Prepare input tensor [1, T, C] with C=2 (red, ir)
         // Model expects (batch, length, channels) format as per training
         int targetLength = windowSeconds * targetFs;
         if (targetLength <= 0) {
@@ -502,19 +586,26 @@ public class ModelInferenceManager {
             return;
         }
 
-        float[] resampledGreen = resampleBuffer(greenBuf, targetLength);
-        float[] resampledIr = resampleBuffer(irBuf, targetLength);
-        if (resampledGreen == null || resampledIr == null) {
+        // 使用 Red + IR（而非 Green + IR）来匹配训练时的数据
+        float[] resampledRed = resampleBufferWithPadding(redBuf, targetLength);
+        float[] resampledIr = resampleBufferWithPadding(irBuf, targetLength);
+        if (resampledRed == null || resampledIr == null) {
             logDebug("Resample failed due to insufficient data");
             return;
         }
 
-        // Interleave channels: [t0_green, t0_ir, t1_green, t1_ir, ...]
+        // Apply bandpass filter (0.5-3 Hz) to match training preprocessing
+        logDebug("Applying physiological signal bandpass filter (0.5-3 Hz)");
+        float[] filteredRed = SignalFilters.PhysiologicalSignalFilter.filter(resampledRed);
+        float[] filteredIr = SignalFilters.PhysiologicalSignalFilter.filter(resampledIr);
+
+        // Interleave channels: [t0_ir, t0_red, t1_ir, t1_red, ...]
         // to match (batch=1, length=T, channels=2) layout
+        // 通道顺序：[IR, Red] 与训练时一致
         float[] input = new float[targetLength * 2];
         for (int i = 0; i < targetLength; i++) {
-            input[i * 2] = resampledGreen[i];     // time step i, channel 0 (green)
-            input[i * 2 + 1] = resampledIr[i];    // time step i, channel 1 (ir)
+            input[i * 2] = filteredIr[i];      // time step i, channel 0 (IR)
+            input[i * 2 + 1] = filteredRed[i]; // time step i, channel 1 (Red)
         }
 
         // normalize per-channel (zero mean, unit var) for numerical stability
@@ -532,7 +623,7 @@ public class ModelInferenceManager {
             // Extract IR channel only for HR model: [1, T, 1]
             float[] hrInput = new float[targetLength];
             for (int i = 0; i < targetLength; i++) {
-                hrInput[i] = input[i * 2 + 1];  // Extract IR channel (index 1)
+                hrInput[i] = input[i * 2];  // Extract IR channel (index 0, 通道顺序已调整为 [IR, Red])
             }
             // Normalize single channel
             double mean = 0;
@@ -577,7 +668,7 @@ public class ModelInferenceManager {
             }
             if (Float.isNaN(pred)) logDebug("BP_SYS prediction NaN (" + bpSysTime + "ms)");
         }
-        
+
         // BP DIA
         long bpDiaStart = System.currentTimeMillis();
         if (hasMission(Mission.BP_DIA)) {
@@ -612,35 +703,40 @@ public class ModelInferenceManager {
     
     private void runRRMission() {
         long startTime = System.currentTimeMillis();
-        
-        // Prepare input tensor for RR: [1, T, 1] with 15-second window
-        int targetLength = windowSecondsRR * targetFs;  // 15秒 × 100Hz = 1500 samples
+
+        // Prepare input tensor for RR: [1, T, 1] with 30-second window
+        int targetLength = windowSecondsRR * targetFs;  // 30秒 × 100Hz = 3000 samples
         if (targetLength <= 0) {
             logDebug("RR target length invalid: " + targetLength);
             return;
         }
 
-        float[] resampledIr = resampleBuffer(irBufRR, targetLength);
+        float[] resampledIr = resampleBufferWithPadding(irBufRR, targetLength);
         if (resampledIr == null) {
             logDebug("RR resample failed due to insufficient data");
             return;
         }
 
+        // Apply respiratory rate specific filtering (0.067-0.5 Hz bandpass)
+        // This matches the "ir-filtered-rr" preprocessing used in training
+        logDebug("Applying respiratory rate bandpass filter");
+        float[] filteredIr = SignalFilters.RespiratoryRateFilter.filter(resampledIr);
+
         // Normalize single channel (IR only)
         double mean = 0;
         for (int i = 0; i < targetLength; i++) {
-            mean += resampledIr[i];
+            mean += filteredIr[i];
         }
         mean /= targetLength;
         double var = 0;
         for (int i = 0; i < targetLength; i++) {
-            double v = resampledIr[i] - mean;
+            double v = filteredIr[i] - mean;
             var += v * v;
         }
         double std = Math.sqrt(var / Math.max(1, targetLength - 1));
         if (std < 1e-6) std = 1.0;
         for (int i = 0; i < targetLength; i++) {
-            resampledIr[i] = (float) ((resampledIr[i] - mean) / std);
+            filteredIr[i] = (float) ((filteredIr[i] - mean) / std);
         }
         
         long prepTime = System.currentTimeMillis() - startTime;
@@ -651,7 +747,7 @@ public class ModelInferenceManager {
         if (hasMission(Mission.RR)) {
             float pred = Float.NaN;
             try {
-                Tensor rrTensor = Tensor.fromBlob(resampledIr, new long[]{1, targetLength, 1}); // (B, T, C) as per training
+                Tensor rrTensor = Tensor.fromBlob(filteredIr, new long[]{1, targetLength, 1}); // (B, T, C) as per training
                 pred = averagePrediction(missionModules.get(Mission.RR), rrTensor);
             } catch (Throwable e) {
                 Log.e(TAG, "RR inference failed", e);
@@ -678,6 +774,17 @@ public class ModelInferenceManager {
         return list != null && !list.isEmpty();
     }
 
+    private ModelArchitecture.ClassicAlgorithmType getClassicAlgorithm(Mission mission) {
+        if (modelSelectionConfig == null) {
+            return ModelArchitecture.ClassicAlgorithmType.NONE;
+        }
+        ModelArchitecture arch = modelSelectionConfig.getArchitecture(mission);
+        if (arch != null && arch.isClassicAlgorithm()) {
+            return arch.getClassicType();
+        }
+        return ModelArchitecture.ClassicAlgorithmType.NONE;
+    }
+
     private float averagePrediction(List<Module> modules, Tensor input) {
         if (modules == null || modules.isEmpty()) return Float.NaN;
         float sum = 0f;
@@ -685,7 +792,25 @@ public class ModelInferenceManager {
         for (Module m : modules) {
             try {
                 IValue out = m.forward(IValue.from(input));
-                Tensor t = out.toTensor();
+
+                // Handle both single tensor and tuple outputs
+                Tensor t;
+                if (out.isTuple()) {
+                    // For tuple output, use the first element (prediction)
+                    IValue[] elements = out.toTuple();
+                    if (elements.length > 0 && elements[0].isTensor()) {
+                        t = elements[0].toTensor();
+                    } else {
+                        logDebug("Tuple output but first element is not a tensor");
+                        continue;
+                    }
+                } else if (out.isTensor()) {
+                    t = out.toTensor();
+                } else {
+                    logDebug("Output is neither tensor nor tuple");
+                    continue;
+                }
+
                 float[] arr = t.getDataAsFloatArray();
                 if (arr.length > 0) {
                     sum += arr[arr.length - 1]; // support either scalar or last-step output
@@ -700,32 +825,66 @@ public class ModelInferenceManager {
         return n > 0 ? sum / n : Float.NaN;
     }
 
-    private float[] resampleBuffer(ArrayDeque<Float> buffer, int targetLength) {
+    private float[] resampleBufferWithPadding(ArrayDeque<Float> buffer, int targetLength) {
         int srcSize = buffer.size();
         if (srcSize < 2 || targetLength < 2) {
             return null;
         }
+
+        // 将缓冲区数据转换为数组
         float[] src = new float[srcSize];
         int idx = 0;
         for (Float v : buffer) {
             src[idx++] = v;
         }
 
-        float[] out = new float[targetLength];
+        // 计算原始数据对应的目标长度（重采样后）
         float ratio = (float) sampleRateHz / targetFs;
-        for (int i = 0; i < targetLength; i++) {
-            float srcPos = i * ratio;
-            int idx0 = (int) Math.floor(srcPos);
-            int idx1 = Math.min(srcSize - 1, idx0 + 1);
-            float frac = srcPos - idx0;
-            if (idx0 >= srcSize) {
-                out[i] = src[srcSize - 1];
-            } else {
-                float v0 = src[idx0];
-                float v1 = src[idx1];
-                out[i] = v0 + (v1 - v0) * frac;
+        int srcTargetLength = (int) (srcSize / ratio);
+
+        float[] out = new float[targetLength];
+
+        if (srcTargetLength >= targetLength) {
+            // 数据足够，正常重采样
+            for (int i = 0; i < targetLength; i++) {
+                float srcPos = i * ratio;
+                int idx0 = (int) Math.floor(srcPos);
+                int idx1 = Math.min(srcSize - 1, idx0 + 1);
+                float frac = srcPos - idx0;
+                if (idx0 >= srcSize) {
+                    out[i] = src[srcSize - 1];
+                } else {
+                    float v0 = src[idx0];
+                    float v1 = src[idx1];
+                    out[i] = v0 + (v1 - v0) * frac;
+                }
             }
+        } else {
+            // 数据不足，先重采样现有数据，然后循环填充
+            // 第1步：重采样现有数据
+            float[] resampled = new float[srcTargetLength];
+            for (int i = 0; i < srcTargetLength; i++) {
+                float srcPos = i * ratio;
+                int idx0 = (int) Math.floor(srcPos);
+                int idx1 = Math.min(srcSize - 1, idx0 + 1);
+                float frac = srcPos - idx0;
+                if (idx0 >= srcSize) {
+                    resampled[i] = src[srcSize - 1];
+                } else {
+                    float v0 = src[idx0];
+                    float v1 = src[idx1];
+                    resampled[i] = v0 + (v1 - v0) * frac;
+                }
+            }
+
+            // 第2步：循环填充到目标长度
+            for (int i = 0; i < targetLength; i++) {
+                out[i] = resampled[i % srcTargetLength];
+            }
+
+            logDebug("Data padded: " + srcTargetLength + " -> " + targetLength + " samples");
         }
+
         return out;
     }
 

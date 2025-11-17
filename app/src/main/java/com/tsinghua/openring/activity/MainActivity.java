@@ -43,8 +43,12 @@ import com.tsinghua.openring.R;
 import com.tsinghua.openring.PlotView;
 import com.tsinghua.openring.utils.BLEService;
 import com.tsinghua.openring.inference.ModelInferenceManager;
+import com.tsinghua.openring.inference.ModelArchitecture;
+import com.tsinghua.openring.inference.ModelSelectionConfig;
 import com.tsinghua.openring.utils.NotificationHandler;
 import com.tsinghua.openring.utils.VitalSignsProcessor;
+import com.tsinghua.openring.utils.VitalSignsHistoryManager;
+import com.tsinghua.openring.utils.VitalSignsRecord;
 import com.tsinghua.openring.utils.CloudConfig;
 import com.tsinghua.openring.utils.CloudSyncService;
 
@@ -135,6 +139,18 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
     private VitalSignsProcessor vitalSignsProcessor;
     private ModelInferenceManager modelInferenceManager;
     private VitalSignsProcessor.SignalQuality currentSignalQuality = VitalSignsProcessor.SignalQuality.NO_SIGNAL;
+
+    // Model Selection
+    private static final int REQUEST_MODEL_SELECTION = 1001;
+    private ModelSelectionConfig currentModelConfig;
+
+    // History Management
+    private VitalSignsHistoryManager historyManager;
+    private List<Integer> measurementHrValues = new ArrayList<>();
+    private List<Integer> measurementBpSysValues = new ArrayList<>();
+    private List<Integer> measurementBpDiaValues = new ArrayList<>();
+    private List<Integer> measurementSpo2Values = new ArrayList<>();
+    private List<Integer> measurementRrValues = new ArrayList<>();
 
     // HR/RR Display Components
     private TextView heartRateValue;
@@ -464,6 +480,9 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         });
         NotificationHandler.setVitalSignsProcessor(vitalSignsProcessor);
 
+        // Initialize history manager
+        historyManager = new VitalSignsHistoryManager(this);
+
         // Initialize transformer inference manager
         modelInferenceManager = new ModelInferenceManager(getApplicationContext(), new ModelInferenceManager.Listener() {
             @Override
@@ -474,6 +493,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                         heartRateValue.setText(String.valueOf(bpm));
                         updateLastUpdateTime();
                         recordLog("[Model] HR: " + bpm + " BPM");
+                        // Accumulate data for history if measuring
+                        if (isMeasuring) {
+                            measurementHrValues.add(bpm);
+                        }
                     } else {
                         recordLog("[Model] HR: " + bpm + " BPM (not displayed - signal quality poor)");
                     }
@@ -487,6 +510,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                     if (isSignalQualityGood() && bpSysValue != null) {
                         bpSysValue.setText(String.valueOf(mmHg));
                         recordLog("[Model] BP_SYS: " + mmHg + " mmHg");
+                        // Accumulate data for history if measuring
+                        if (isMeasuring) {
+                            measurementBpSysValues.add(mmHg);
+                        }
                     } else {
                         recordLog("[Model] BP_SYS: " + mmHg + " mmHg (not displayed - signal quality poor)");
                     }
@@ -500,6 +527,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                     if (isSignalQualityGood() && bpDiaValue != null) {
                         bpDiaValue.setText(String.valueOf(mmHg));
                         recordLog("[Model] BP_DIA: " + mmHg + " mmHg");
+                        // Accumulate data for history if measuring
+                        if (isMeasuring) {
+                            measurementBpDiaValues.add(mmHg);
+                        }
                     } else {
                         recordLog("[Model] BP_DIA: " + mmHg + " mmHg (not displayed - signal quality poor)");
                     }
@@ -513,6 +544,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                     if (isSignalQualityGood() && spo2Value != null) {
                         spo2Value.setText(String.valueOf(percent));
                         recordLog("[Model] SpO2: " + percent + "%");
+                        // Accumulate data for history if measuring
+                        if (isMeasuring) {
+                            measurementSpo2Values.add(percent);
+                        }
                     } else {
                         recordLog("[Model] SpO2: " + percent + "% (not displayed - signal quality poor)");
                     }
@@ -526,6 +561,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                     if (isSignalQualityGood() && rrValue != null) {
                         rrValue.setText(String.valueOf(brpm));
                         recordLog("[Model] RR: " + brpm + " brpm");
+                        // Accumulate data for history if measuring
+                        if (isMeasuring) {
+                            measurementRrValues.add(brpm);
+                        }
                     } else {
                         recordLog("[Model] RR: " + brpm + " brpm (not displayed - signal quality poor)");
                     }
@@ -755,6 +794,14 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         }
         if (stopMeasurementButton != null) {
             stopMeasurementButton.setOnClickListener(v -> stopOnlineMeasurement());
+        }
+        Button modelSelectionButton = findViewById(R.id.modelSelectionButton);
+        if (modelSelectionButton != null) {
+            modelSelectionButton.setOnClickListener(v -> openModelSelection());
+        }
+        Button viewHistoryButton = findViewById(R.id.viewHistoryButton);
+        if (viewHistoryButton != null) {
+            viewHistoryButton.setOnClickListener(v -> openHistoryView());
         }
 
         // Exercise control buttons
@@ -1466,6 +1513,13 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             isMeasuring = true;
             clearAllPlots();
 
+            // Clear history accumulation lists
+            measurementHrValues.clear();
+            measurementBpSysValues.clear();
+            measurementBpDiaValues.clear();
+            measurementSpo2Values.clear();
+            measurementRrValues.clear();
+
             if (modelInferenceManager != null) {
                 modelInferenceManager.reset();
             }
@@ -1500,6 +1554,9 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
                 measurementTimer = null;
             }
 
+            // Save measurement history (average values)
+            saveMeasurementToHistory();
+
             // Clear HR/RR display values
             clearVitalSignsDisplay();
 
@@ -1515,6 +1572,71 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
             Toast.makeText(this, "Online measurement stopped", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void saveMeasurementToHistory() {
+        // Check if we have any data to save
+        if (measurementHrValues.isEmpty() && measurementBpSysValues.isEmpty() &&
+            measurementBpDiaValues.isEmpty() && measurementSpo2Values.isEmpty() &&
+            measurementRrValues.isEmpty()) {
+            recordLog("[History] No data to save - measurement too short or no valid readings");
+            return;
+        }
+
+        // Calculate average values (use 0 if no data for that metric)
+        int avgHr = calculateAverage(measurementHrValues);
+        int avgBpSys = calculateAverage(measurementBpSysValues);
+        int avgBpDia = calculateAverage(measurementBpDiaValues);
+        int avgSpo2 = calculateAverage(measurementSpo2Values);
+        int avgRr = calculateAverage(measurementRrValues);
+
+        // Create record with current timestamp
+        String timestamp = VitalSignsHistoryManager.getCurrentTimestamp();
+        VitalSignsRecord record = new VitalSignsRecord(timestamp, avgHr, avgBpSys, avgBpDia, avgSpo2, avgRr);
+
+        // Save to history
+        historyManager.saveRecord(record);
+
+        // Log the saved values
+        recordLog(String.format("[History] Saved: HR=%d, BP=%d/%d, SpO2=%d%%, RR=%d (samples: %d,%d,%d,%d,%d)",
+                avgHr, avgBpSys, avgBpDia, avgSpo2, avgRr,
+                measurementHrValues.size(), measurementBpSysValues.size(),
+                measurementBpDiaValues.size(), measurementSpo2Values.size(), measurementRrValues.size()));
+
+        Toast.makeText(this, "Measurement saved to history", Toast.LENGTH_SHORT).show();
+    }
+
+    private int calculateAverage(List<Integer> values) {
+        if (values == null || values.isEmpty()) {
+            return 0;
+        }
+        // Filter out zero values
+        int sum = 0;
+        int count = 0;
+        for (int value : values) {
+            if (value > 0) {
+                sum += value;
+                count++;
+            }
+        }
+        // If all values are 0, return 0
+        if (count == 0) {
+            return 0;
+        }
+        return sum / count;
+    }
+
+    private void openModelSelection() {
+        Intent intent = new Intent(this, ModelSelectionActivity.class);
+        if (currentModelConfig != null) {
+            intent.putExtra(ModelSelectionActivity.EXTRA_CONFIG, currentModelConfig);
+        }
+        startActivityForResult(intent, REQUEST_MODEL_SELECTION);
+    }
+
+    private void openHistoryView() {
+        Intent intent = new Intent(this, HistoryViewActivity.class);
+        startActivity(intent);
     }
 
     private void startMeasurementTimer(int totalTime) {
@@ -2605,6 +2727,27 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
         if (requestCode == 100 && resultCode == RESULT_OK) {
             // Returned from RingSettingsActivity, reload device info
             loadDeviceInfo();
+        } else if (requestCode == REQUEST_MODEL_SELECTION && resultCode == RESULT_OK) {
+            // Handle model selection result
+            if (data != null && data.hasExtra(ModelSelectionActivity.EXTRA_CONFIG)) {
+                currentModelConfig = (ModelSelectionConfig) data.getSerializableExtra(ModelSelectionActivity.EXTRA_CONFIG);
+
+                // Apply new model configuration
+                if (modelInferenceManager != null && currentModelConfig != null) {
+                    modelInferenceManager.setModelSelectionConfig(currentModelConfig);
+                    // Reload models
+                    modelInferenceManager.reloadModels();
+
+                    // Display configuration info
+                    StringBuilder configInfo = new StringBuilder("Model configuration updated:\n");
+                    for (ModelInferenceManager.Mission mission : ModelInferenceManager.Mission.values()) {
+                        ModelArchitecture arch = currentModelConfig.getArchitecture(mission);
+                        configInfo.append(mission.name()).append(": ").append(arch.getDisplayName()).append("\n");
+                    }
+                    recordLog(configInfo.toString());
+                    Toast.makeText(this, "Model configuration updated", Toast.LENGTH_SHORT).show();
+                }
+            }
         }
     }
 
@@ -2702,7 +2845,8 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
 
     @Override
     public void saveData(String s) {
-        String msg = NotificationHandler.handleNotification(hexStringToByteArray(s));
+        byte[] dataBytes = hexStringToByteArray(s);
+        String msg = NotificationHandler.handleNotification(dataBytes);
         recordLog("Received data: " + msg);
         if (connectionStatus == 7 && deviceName.isEmpty()) {
             SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
