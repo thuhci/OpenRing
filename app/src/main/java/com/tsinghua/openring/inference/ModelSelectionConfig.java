@@ -24,18 +24,18 @@ public class ModelSelectionConfig implements Serializable {
      * Set default model architecture configuration
      */
     private void setDefaults() {
-        missionArchitectures.put(ModelInferenceManager.Mission.HR, ModelArchitecture.TRANSFORMER);
-        missionArchitectures.put(ModelInferenceManager.Mission.BP_SYS, ModelArchitecture.TRANSFORMER);
-        missionArchitectures.put(ModelInferenceManager.Mission.BP_DIA, ModelArchitecture.TRANSFORMER);
-        missionArchitectures.put(ModelInferenceManager.Mission.SPO2, ModelArchitecture.TRANSFORMER);
-        missionArchitectures.put(ModelInferenceManager.Mission.RR, ModelArchitecture.RESNET);
+        missionArchitectures.put(ModelInferenceManager.Mission.HR, ModelArchitecture.INCEPTION);
+        missionArchitectures.put(ModelInferenceManager.Mission.BP_SYS, ModelArchitecture.INCEPTION);
+        missionArchitectures.put(ModelInferenceManager.Mission.BP_DIA, ModelArchitecture.INCEPTION);
+        missionArchitectures.put(ModelInferenceManager.Mission.SPO2, ModelArchitecture.INCEPTION);
+        missionArchitectures.put(ModelInferenceManager.Mission.RR, ModelArchitecture.INCEPTION);
     }
 
     /**
      * Get the model architecture for the specified task
      */
     public ModelArchitecture getArchitecture(ModelInferenceManager.Mission mission) {
-        return missionArchitectures.getOrDefault(mission, ModelArchitecture.TRANSFORMER);
+        return missionArchitectures.getOrDefault(mission, ModelArchitecture.INCEPTION);
     }
 
     /**

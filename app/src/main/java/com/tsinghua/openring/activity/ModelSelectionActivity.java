@@ -62,16 +62,14 @@ public class ModelSelectionActivity extends AppCompatActivity {
                            ModelInferenceManager.Mission.RR, "Respiration Rate (RR)");
 
         // Quick setting buttons
-        Button btnAllTransformer = findViewById(R.id.btn_all_transformer);
-        btnAllTransformer.setOnClickListener(v -> setAllToDefaultModels());
+        Button btnAllInception = findViewById(R.id.btn_all_transformer);
+        btnAllInception.setOnClickListener(v -> setAllToArchitecture(ModelArchitecture.INCEPTION, "Set all to Inception"));
 
-        Button btnAllResnet = findViewById(R.id.btn_all_resnet);
-        btnAllResnet.setEnabled(false);
-        btnAllResnet.setAlpha(0.5f);
+        Button btnAllTransformer = findViewById(R.id.btn_all_resnet);
+        btnAllTransformer.setOnClickListener(v -> setAllToArchitecture(ModelArchitecture.TRANSFORMER, "Set all to Transformer"));
 
-        Button btnAllInception = findViewById(R.id.btn_all_inception);
-        btnAllInception.setEnabled(false);
-        btnAllInception.setAlpha(0.5f);
+        Button btnAllResnet = findViewById(R.id.btn_all_inception);
+        btnAllResnet.setOnClickListener(v -> setAllToArchitecture(ModelArchitecture.RESNET, "Set all to ResNet"));
 
         // Confirm button
         Button btnConfirm = findViewById(R.id.btn_confirm);
@@ -153,15 +151,13 @@ public class ModelSelectionActivity extends AppCompatActivity {
         return available.toArray(new ModelArchitecture[0]);
     }
 
-    private void setAllToDefaultModels() {
-        // Set each mission to its default available model
-        config.setArchitecture(ModelInferenceManager.Mission.HR, ModelArchitecture.TRANSFORMER);
-        config.setArchitecture(ModelInferenceManager.Mission.BP_SYS, ModelArchitecture.TRANSFORMER);
-        config.setArchitecture(ModelInferenceManager.Mission.BP_DIA, ModelArchitecture.TRANSFORMER);
-        config.setArchitecture(ModelInferenceManager.Mission.SPO2, ModelArchitecture.TRANSFORMER);
-        config.setArchitecture(ModelInferenceManager.Mission.RR, ModelArchitecture.RESNET);
+    private void setAllToArchitecture(ModelArchitecture architecture, String toastText) {
+        config.setAllArchitectures(architecture);
+        refreshSpinnersFromConfig();
+        Toast.makeText(this, toastText, Toast.LENGTH_SHORT).show();
+    }
 
-        // Update all spinners
+    private void refreshSpinnersFromConfig() {
         for (Map.Entry<ModelInferenceManager.Mission, Spinner> entry : missionSpinners.entrySet()) {
             Spinner spinner = entry.getValue();
             ModelArchitecture selectedArch = config.getArchitecture(entry.getKey());
@@ -169,8 +165,6 @@ public class ModelSelectionActivity extends AppCompatActivity {
             int index = getArchitectureIndex(selectedArch, options);
             spinner.setSelection(index);
         }
-        Toast.makeText(this, "Set all models to defaults (Transformer/ResNet)",
-                      Toast.LENGTH_SHORT).show();
     }
 
     private void confirmSelection() {
