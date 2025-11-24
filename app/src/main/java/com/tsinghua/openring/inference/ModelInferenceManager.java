@@ -86,7 +86,7 @@ public class ModelInferenceManager {
     
     // 最小数据要求：至少需要5秒的数据才开始推理（避免过少数据影响精度）
     private static final int MIN_SECONDS_FOR_INFERENCE = 5;
-    private static final int MIN_SECONDS_FOR_RR_INFERENCE = 15;
+    private static final int MIN_SECONDS_FOR_RR_INFERENCE = 10;  // 降低到10秒以加快响应
     
     // 平滑滤波器：存储最近N次预测结果
     private static final int SMOOTHING_WINDOW_SIZE = 5; // 使用最近5次结果

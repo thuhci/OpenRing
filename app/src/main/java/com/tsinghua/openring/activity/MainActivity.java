@@ -456,6 +456,10 @@ public class MainActivity extends AppCompatActivity implements IResponseListener
             @Override
             public void onSignalQualityUpdate(VitalSignsProcessor.SignalQuality quality) {
                 currentSignalQuality = quality;
+                // 通知推理管理器信号质量已更新
+                if (modelInferenceManager != null) {
+                    modelInferenceManager.updateSignalQuality(quality);
+                }
                 mainHandler.post(() -> {
                     if (signalQualityIndicator != null) {
                         signalQualityIndicator.setText(quality.getDisplayName());
